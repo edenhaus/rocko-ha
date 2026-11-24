@@ -55,8 +55,8 @@ rules:
     status: exempt
     comment: The integration has no entity platforms.
   reauthentication-flow:
-    status: exempt
-    comment: There is no authentication; access to the control socket is the authorization.
+    status: todo
+    comment: A rocko on another host authenticates the paired client certificate; one that revoked it fails as a connection error, and the user pairs again through Reconfigure. The socket modes have no authentication.
   test-coverage: done
 
   # Gold
@@ -66,7 +66,7 @@ rules:
   diagnostics: done
   discovery:
     status: exempt
-    comment: The daemon is local and reached through a socket path; there is nothing to discover.
+    comment: rocko does not announce itself; it is reached through a socket path, or on another host by the host and port its pairing code is entered with.
   discovery-update-info:
     status: exempt
     comment: There is no discovery.
@@ -105,6 +105,6 @@ rules:
   # Platinum
   async-dependency: done
   inject-websession:
-    status: exempt
-    comment: The client's HTTP session is bound to the daemon's Unix socket; Home Assistant's shared session speaks TCP.
+    status: done
+    comment: Pairing with and connecting to a rocko on another host use Home Assistant's shared session. The control socket needs a session bound to the Unix socket, which the shared TCP session cannot be.
   strict-typing: done

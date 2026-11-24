@@ -27,8 +27,10 @@ into core later. Until then it is a custom integration, installable with HACS.
 ## Requirements
 
 - Home Assistant 2026.10 or newer.
-- A rocko binary on the Home Assistant host (Linux), or a rocko that already
-  runs and whose control socket Home Assistant may open.
+- A rocko binary on the Home Assistant host (Linux), a rocko that already
+  runs and whose control socket Home Assistant may open, or a rocko on
+  another host (or in another container) whose control listener Home
+  Assistant reaches over the network.
 - Cameras whose integration gives Home Assistant a stream source, such as
   Generic Camera, ONVIF or most vendor integrations.
 
@@ -62,9 +64,19 @@ Choose how Home Assistant reaches the daemon:
     by default. Home Assistant connects to check it before the entry is made.
     The daemon admits only the user it was started as, or the one its
     `--allow-uid` names.
+- **Connect to rocko on another host**: the daemon runs elsewhere and serves
+  its control API over mutual TLS (see
+  [rocko on another host](#rocko-on-another-host)).
+  - *Host*: the name or IP address of the host rocko runs on.
+  - *Port*: its control listener's TCP port, `18557` by default.
+  - *Pairing code*: the one-time code from `rocko pair`, valid for 10
+    minutes. Home Assistant makes a new client key and certificate, pairs
+    them with the daemon through the code, and connects once to check it
+    before the entry is made. The entry keeps the key, its certificate and
+    the daemon's certificate, never the code.
 
-Only one rocko entry can exist. To switch between the two, or change the
-path, use **Reconfigure** on the entry.
+Only one rocko entry can exist. To switch between the three, change the
+path, host or port, or pair again, use **Reconfigure** on the entry.
 
 ## Examples
 
@@ -111,10 +123,62 @@ volumes:
 Then **Add integration → rocko → Connect to a running rocko**, and keep the
 suggested *Control socket*, `/run/rocko/rocko.sock`.
 
+### rocko on another host
+
+A rocko in its own container without a shared socket, or on another
+machine, serves its control API over mutual TLS once its control listener
+is on. Each side trusts exactly the other's certificate: the daemon admits
+Home Assistant by its certificate's pin, which pairing enrolls, and Home
+Assistant trusts exactly the daemon's certificate, which pairing fetches.
+
+1. Start rocko with the listener on and its port published, for example
+   with rocko's release image:
+
+   ```sh
+   podman run -d --name rocko --read-only --cap-drop=all --security-opt=no-new-privileges \
+     --tmpfs /run/rocko:rw,mode=0700,U -v rocko-data:/data \
+     -p 30415:30415/udp -p 30415:30415/tcp -p 18557:18557/tcp \
+     -e 'ROCKO_CONTROL_LISTEN=[::]:18557' -e ROCKO_WEBRTC_ADVERTISE=192.168.1.10 \
+     ghcr.io/edenhaus/rocko:<release>
+   ```
+
+   - `ROCKO_CONTROL_LISTEN` turns the control listener on; `18557` is the
+     port the form suggests. Home Assistant must reach that TCP port.
+   - Browsers, not Home Assistant, receive the video: they must reach the
+     daemon's WebRTC port (UDP and TCP 30415 by default) at an address the
+     daemon tells them. Behind a container's bridge network the daemon only
+     knows the container's own addresses, so `ROCKO_WEBRTC_ADVERTISE` names
+     the host's LAN address instead (`IP` or `IP:PORT`); with host
+     networking it is not needed. rocko's README explains the networking.
+   - The data volume keeps the daemon's certificate and the enrolled
+     clients across restarts.
+
+2. Get a pairing code. A rocko that has no client yet logs one at startup
+   (`podman logs rocko`); `rocko pair` makes a new one at any time
+   (`podman exec rocko /rocko pair`). A code is valid for 10 minutes and
+   only the newest one works.
+3. **Add integration → rocko → Connect to rocko on another host**, and
+   enter the host's address, the port and the code.
+
+If the form says the daemon's certificate lacks the name Home Assistant
+checks, the daemon's identity was made by an older rocko: `rocko identity
+--reissue` replaces it, and after a restart of rocko you pair with a new
+code.
+
+To pair again, for example with a new code after the daemon's identity
+changed or the client was revoked, use **Reconfigure → Connect to rocko on
+another host** with a new code: Home Assistant pairs a new key and
+certificate and reloads the entry. To revoke Home Assistant on the daemon,
+remove its pin (*client_pin* in the entry's diagnostics) with
+`rocko ctl clients remove <pin>`; a revoked Home Assistant cannot connect
+until it pairs again. There is no re-authentication flow yet: a revoked
+client shows as a connection error and is retried.
+
 ## How it works
 
-- Home Assistant holds one connection to the daemon's control socket and
-  pings it every 10 s. A missing pong or a closed connection counts as lost:
+- Home Assistant holds one connection to the daemon's control socket, or
+  to its control listener over mutual TLS (through Home Assistant's shared
+  HTTP session), and pings it every 10 s. A missing pong or a closed connection counts as lost:
   Home Assistant reconnects at once, then after 1, 2, 4, … up to 60 s, and
   restarts a daemon it runs. While the daemon cannot be reached, live views
   fail at once, so the frontend falls back to HLS.
@@ -139,9 +203,13 @@ suggested *Control socket*, `/run/rocko/rocko.sock`.
   with trickled ICE in both directions. The source keeps rocko's defaults:
   RTSP over TCP, no backchannel, TLS trusting the system's roots.
 - Orientation and preload preferences.
-- Running and supervising the daemon, or connecting to a running one.
+- Running and supervising the daemon, connecting to a running one through
+  its socket, or to one on another host over mutual TLS, paired with a
+  one-time code.
 - Diagnostics: the daemon's `info`, its counters and stream states, with
-  addresses and credentials redacted.
+  addresses and credentials redacted; for a rocko on another host, the pins
+  of Home Assistant's and the daemon's certificates, with the host, the key
+  and the certificates redacted.
 - Repair issues when rocko runs with its sandbox off, or without one of its
   layers (privilege drop, `no_new_privs`, seccomp, Landlock filesystem
   rules). They are checked on every connection and withdrawn once fixed.
@@ -173,6 +241,10 @@ suggested *Control socket*, `/run/rocko/rocko.sock`.
 
 - **Download diagnostics** on the entry shows whether the daemon is
   connected, its version, limits, sandbox, counters and streams.
+- A rocko on another host that cannot be reached leaves the entry retrying
+  its setup, with the client's error on the entry. Check that the port is reachable, and that the daemon
+  still lists Home Assistant's pin (`rocko ctl clients list`); if it does
+  not, pair again through **Reconfigure**.
 - A live view that fails shows rocko's error code in the browser's console
   (`source_auth_failed`, `source_unreachable`, `video_codec_unsupported`, …).
 - Stream source URLs carry camera passwords: the integration never logs them,
@@ -181,10 +253,12 @@ suggested *Control socket*, `/run/rocko/rocko.sock`.
 ## Removal
 
 Delete the entry under **Settings → Devices & services → rocko**. A daemon
-that Home Assistant runs is stopped; from a daemon that runs on its own, the
-streams of Home Assistant's cameras are deleted, and the daemon keeps
-running. Then remove the integration in HACS, or delete
-`custom_components/rocko`.
+that Home Assistant runs is stopped; from a daemon that runs on its own,
+here or on another host, the streams of Home Assistant's cameras are
+deleted, and the daemon keeps running. A daemon on another host keeps Home
+Assistant's pin enrolled: remove it with `rocko ctl clients remove <pin>`
+(the pin is in the entry's diagnostics, or in `rocko ctl clients list`).
+Then remove the integration in HACS, or delete `custom_components/rocko`.
 
 ## Development
 

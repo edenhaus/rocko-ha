@@ -11,8 +11,8 @@ from homeassistant.const import EVENT_HOMEASSISTANT_STOP
 from homeassistant.core import Event, HomeAssistant
 from homeassistant.exceptions import ConfigEntryError, ConfigEntryNotReady
 
-from .connection import RockoConnection
-from .const import CONF_BINARY, CONF_MODE, CONF_SOCKET, DOMAIN, MODE_SPAWN
+from .connection import Endpoint, RemoteDaemon, RockoConnection
+from .const import CONF_BINARY, CONF_MODE, CONF_SOCKET, DOMAIN, MODE_REMOTE, MODE_SPAWN
 from .issues import async_delete_sandbox_issues, async_update_sandbox_issues
 from .priority import async_register_first_webrtc_provider
 from .provider import DATA_HANDOVER, RockoWebRTCProvider, stream_id_for
@@ -34,9 +34,11 @@ type RockoConfigEntry = ConfigEntry[RockoData]
 
 async def async_setup_entry(hass: HomeAssistant, entry: RockoConfigEntry) -> bool:
     """Connect to rocko, or run it, and register it as the WebRTC provider."""
-    endpoint: str | RockoServer
+    endpoint: Endpoint
     if entry.data[CONF_MODE] == MODE_SPAWN:
         endpoint = RockoServer(hass, entry.data[CONF_BINARY])
+    elif entry.data[CONF_MODE] == MODE_REMOTE:
+        endpoint = RemoteDaemon.from_entry_data(hass, entry.data)
     else:
         endpoint = entry.data[CONF_SOCKET]
     connection = RockoConnection(hass, entry, endpoint)
@@ -86,7 +88,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: RockoConfigEntry) -> boo
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: RockoConfigEntry) -> bool:
-    """Unload the entry; a daemon Home Assistant runs is stopped."""
+    """Unload the entry; a daemon Home Assistant runs is stopped, any other runs on."""
     data = entry.runtime_data
     # A daemon that keeps running keeps the sessions for its grace period,
     # so the next entry can adopt them.
@@ -106,7 +108,10 @@ async def async_remove_entry(hass: HomeAssistant, entry: RockoConfigEntry) -> No
         stream_id_for(entity_id)
         for entity_id in hass.states.async_entity_ids(CAMERA_DOMAIN)
     }
-    client = RockoClient(entry.data[CONF_SOCKET])
+    if entry.data[CONF_MODE] == MODE_REMOTE:
+        client = RemoteDaemon.from_entry_data(hass, entry.data).client()
+    else:
+        client = RockoClient(entry.data[CONF_SOCKET])
     try:
         await client.connect()
         try:

@@ -17,7 +17,9 @@ dev = [
   # The requirements of the camera and stream components, which the tests load;
   # Home Assistant installs them with those components.
   "av==19.0.0",
-  "rocko-client==0.0.1", # the version manifest.json requires
+  # manifest.json requires 0.1.0, the first release with the remote connection and
+  # pairing; until it is on PyPI, the commit it is released from (tool.uv.sources).
+  "rocko-client",
   "mypy==2.4.0",
   "PyTurboJPEG==1.8.3",
   # The newest release; it pins homeassistant==2026.10.4 (none pins 2026.11 yet).
@@ -27,6 +29,11 @@ dev = [
 
 [tool.uv]
 package = false
+
+# TEMPORARY: rocko-client 0.1.0 before its release on PyPI, from the commit it is
+# released from. Replace with "rocko-client==0.1.0" above once it is published.
+[tool.uv.sources]
+rocko-client = { git = "https://github.com/edenhaus/rocko-clients", rev = "81e9eaab6d81efe717b48f1734fb51b7602880ea", subdirectory = "python" }
 
 # The ruff rules are Home Assistant core's (its pyproject.toml), so the
 # integration can move into core unchanged.

@@ -13,7 +13,13 @@ from syrupy.assertion import SnapshotAssertion
 from homeassistant.core import HomeAssistant
 
 from . import run_tasks
-from .conftest import MockClients
+from .conftest import (
+    CLIENT_PIN,
+    CLIENT_PRIVATE_KEY,
+    REMOTE_HOST,
+    SERVER_PIN,
+    MockClients,
+)
 
 
 async def test_diagnostics(
@@ -41,6 +47,30 @@ async def test_diagnostics_spawned(
     result = await get_diagnostics_for_config_entry(hass, hass_client, mock_spawn_entry)
     assert result["server_pid"] == 4242
     assert result["entry_data"] == {"mode": "spawn", "binary": "/usr/bin/rocko"}
+
+
+async def test_diagnostics_remote(
+    hass: HomeAssistant,
+    hass_client: ClientSessionGenerator,
+    mock_remote_entry: MockConfigEntry,
+    mock_clients: MockClients,
+    snapshot: SnapshotAssertion,
+) -> None:
+    """A remote entry's key, certificates and host are redacted; the pins are shown."""
+    mock_remote_entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(mock_remote_entry.entry_id)
+    result = await get_diagnostics_for_config_entry(
+        hass, hass_client, mock_remote_entry
+    )
+    assert {
+        key: result[key] for key in ("entry_data", "client_pin", "server_pin")
+    } == snapshot
+    assert result["client_pin"] == CLIENT_PIN
+    assert result["server_pin"] == SERVER_PIN
+    text = str(result)
+    assert REMOTE_HOST not in text
+    assert CLIENT_PRIVATE_KEY not in text
+    assert "BEGIN CERTIFICATE" not in text
 
 
 async def test_diagnostics_disconnected(

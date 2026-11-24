@@ -162,3 +162,17 @@
     }),
   })
 # ---
+# name: test_diagnostics_remote
+  dict({
+    'client_pin': 'aa0c51900d45c1ad1a18f725d7b9d89f08be4bc96bd37d5819af4370f86af110',
+    'entry_data': dict({
+      'certificate': '**REDACTED**',
+      'host': '**REDACTED**',
+      'mode': 'remote',
+      'port': 18557,
+      'private_key': '**REDACTED**',
+      'server_certificate': '**REDACTED**',
+    }),
+    'server_pin': 'e131c2710026f2da21ca7feb8a2fe9b0548af3bd5cf456f53ca49e34b226192a',
+  })
+# ---
