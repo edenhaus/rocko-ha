@@ -1,5 +1,10 @@
 """The control connection to the rocko daemon, supervised.
 
+The daemon is reached through its control socket, run by Home Assistant
+(through a socket of its own), or on another host through its mutual-TLS
+control listener (`RemoteDaemon`); only the one Home Assistant runs is ever
+started or stopped here.
+
 There is one connection for the daemon's whole life. It is pinged every
 `PING_INTERVAL` seconds; a ping without a pong within `PING_TIMEOUT`, a
 closed connection or, when Home Assistant runs the daemon, the daemon's exit
@@ -10,24 +15,81 @@ adopted again within the daemon's grace period.
 """
 
 import asyncio
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Mapping
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 import logging
+from typing import Any, Self
 
-from rocko_client import RockoClient, RockoError
+import aiohttp
+from rocko_client import ClientIdentity, RockoClient, RockoError
 from rocko_client.models import InfoResult
 
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import CONF_HOST, CONF_PORT
 from homeassistant.core import CALLBACK_TYPE, HassJob, HomeAssistant, callback
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.event import async_call_later, async_track_time_interval
 
-from .const import DOMAIN, PING_INTERVAL, PING_TIMEOUT, RECONNECT_MAX_DELAY
+from .const import (
+    CONF_CERTIFICATE,
+    CONF_PRIVATE_KEY,
+    CONF_SERVER_CERTIFICATE,
+    DOMAIN,
+    PING_INTERVAL,
+    PING_TIMEOUT,
+    RECONNECT_MAX_DELAY,
+)
 from .server import RockoServer, RockoServerError
 
 _LOGGER = logging.getLogger(__name__)
 
 type ConnectedListener = Callable[[RockoClient], Awaitable[None]]
 """Called with the new client after every reconnect."""
+
+
+@dataclass(frozen=True, slots=True)
+class RemoteDaemon:
+    """A daemon on another host, reached over its mutual-TLS control listener.
+
+    `identity` is the client identity the daemon enrolled when it was paired,
+    `server_certificate` the daemon's certificate, the only one trusted.
+    Home Assistant never starts or stops such a daemon.
+    """
+
+    host: str
+    port: int
+    identity: ClientIdentity
+    server_certificate: str = field(repr=False)
+    session: aiohttp.ClientSession = field(repr=False)
+    """Home Assistant's shared session; the client sends its TLS settings per request."""
+
+    @classmethod
+    def from_entry_data(cls, hass: HomeAssistant, data: Mapping[str, Any]) -> Self:
+        """The daemon a remote entry's data names, reached through the shared session."""
+        return cls(
+            host=data[CONF_HOST],
+            port=data[CONF_PORT],
+            identity=ClientIdentity(
+                certificate=data[CONF_CERTIFICATE], private_key=data[CONF_PRIVATE_KEY]
+            ),
+            server_certificate=data[CONF_SERVER_CERTIFICATE],
+            session=async_get_clientsession(hass),
+        )
+
+    def client(self) -> RockoClient:
+        """A new, unconnected client of the daemon."""
+        return RockoClient.remote(
+            self.host,
+            self.port,
+            identity=self.identity,
+            server_certificate=self.server_certificate,
+            session=self.session,
+        )
+
+
+type Endpoint = str | RockoServer | RemoteDaemon
+"""Where the daemon is: a control socket's path, a daemon to run, or one elsewhere."""
 
 
 def reconnect_delay(attempt: int) -> int:
@@ -42,9 +104,9 @@ class RockoConnection:
     """The supervised control connection to one rocko daemon."""
 
     def __init__(
-        self, hass: HomeAssistant, entry: ConfigEntry, endpoint: str | RockoServer
+        self, hass: HomeAssistant, entry: ConfigEntry, endpoint: Endpoint
     ) -> None:
-        """Prepare; `endpoint` is a control socket's path or a daemon to spawn."""
+        """Prepare; `endpoint` is a control socket's path, a daemon to spawn or a remote one."""
         self._hass = hass
         self._entry = entry
         self._endpoint = endpoint
@@ -91,11 +153,13 @@ class RockoConnection:
 
     async def _async_open(self, *, restart: bool) -> tuple[RockoClient, InfoResult]:
         """Open a connection and read `info`; spawn or restart the daemon if needed."""
-        if (server := self.server) is not None:
-            socket_path = await server.async_ensure_running(restart=restart)
+        endpoint = self._endpoint
+        if isinstance(endpoint, RockoServer):
+            client = RockoClient(await endpoint.async_ensure_running(restart=restart))
+        elif isinstance(endpoint, RemoteDaemon):
+            client = endpoint.client()
         else:
-            socket_path = str(self._endpoint)
-        client = RockoClient(socket_path)
+            client = RockoClient(endpoint)
         await client.connect()
         try:
             info = await client.info()

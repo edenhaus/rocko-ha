@@ -328,3 +328,27 @@ async def test_spawned_restart_fails(
     await _tick(hass, freezer, 1)
     assert _connection(spawned).client is mock_clients.last
     assert mock_clients.paths[-1] == "s"
+
+
+async def test_remote_connection_closed_reconnects(
+    hass: HomeAssistant,
+    mock_remote_entry: MockConfigEntry,
+    mock_clients: MockClients,
+    freezer: FrozenDateTimeFactory,
+) -> None:
+    """A remote daemon's lost connection is reopened as a socket's, with backoff."""
+    mock_remote_entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(mock_remote_entry.entry_id)
+    await hass.async_block_till_done()
+
+    mock_clients.connect_errors = [CannotConnectError("refused")]
+    mock_clients.last.closed.set_result(ConnectionClosedError("reset"))
+    await run_tasks(hass)
+    assert len(mock_clients.remote_calls) == 2
+    assert _connection(mock_remote_entry).client is None
+
+    await _tick(hass, freezer, 1)
+    assert len(mock_clients.remote_calls) == 3
+    assert mock_clients.remote_calls[2] == mock_clients.remote_calls[0]
+    assert mock_clients.paths == []
+    assert _connection(mock_remote_entry).client is mock_clients.last

@@ -3,7 +3,7 @@
 import asyncio
 from collections.abc import AsyncGenerator, Callable, Generator
 from typing import Any
-from unittest.mock import AsyncMock, MagicMock, Mock, patch
+from unittest.mock import AsyncMock, MagicMock, Mock, call, patch
 
 import pytest
 from pytest_homeassistant_custom_component.common import (
@@ -14,7 +14,7 @@ from pytest_homeassistant_custom_component.common import (
     mock_platform,
     setup_test_component_platform,
 )
-from rocko_client import RockoClient, Subscription
+from rocko_client import ClientIdentity, RockoClient, Subscription
 from rocko_client._commands import (
     MetricsCommands,
     SessionCommands,
@@ -32,15 +32,19 @@ from rocko_client.models import (
 
 from custom_components.rocko.const import (
     CONF_BINARY,
+    CONF_CERTIFICATE,
     CONF_MODE,
+    CONF_PRIVATE_KEY,
+    CONF_SERVER_CERTIFICATE,
     CONF_SOCKET,
     DOMAIN,
     MODE_CONNECT,
+    MODE_REMOTE,
     MODE_SPAWN,
 )
 from homeassistant.components.camera import DOMAIN as CAMERA_DOMAIN
 from homeassistant.config_entries import ConfigEntry, ConfigFlow
-from homeassistant.const import Platform
+from homeassistant.const import CONF_HOST, CONF_PORT, Platform
 from homeassistant.core import HomeAssistant
 
 from . import MockCamera
@@ -48,6 +52,51 @@ from . import MockCamera
 SOCKET_PATH = "/run/rocko/rocko.sock"
 SPAWN_SOCKET_PATH = "/run/rocko-spawn/rocko.sock"
 BINARY_PATH = "/usr/bin/rocko"
+
+REMOTE_HOST = "192.0.2.20"
+REMOTE_PORT = 18557
+PAIRING_CODE = f"ROCKO1-{'e1' * 32}-{'5e' * 16}"
+"""A well-formed pairing code; its secret must never be stored."""
+CLIENT_CERTIFICATE = """-----BEGIN CERTIFICATE-----
+MIIBMzCB2qADAgECAhRP2DJPbCyY05TKaGheMcJxUU4y+zAKBggqhkjOPQQDAjAZ
+MRcwFQYDVQQDDA5Ib21lIEFzc2lzdGFudDAgFw0wMDAxMDEwMDAwMDBaGA85OTk5
+MTIzMTIzNTk1OVowGTEXMBUGA1UEAwwOSG9tZSBBc3Npc3RhbnQwWTATBgcqhkjO
+PQIBBggqhkjOPQMBBwNCAASavxY/dym2PVxRNY7zHfrLonDAAOryMojR/H2FXTda
+o55MYnS8Cs4U9PJSbhrKAzu7NCVSC+gzWgmppZbz8/rfMAoGCCqGSM49BAMCA0gA
+MEUCIQCm6AwZYw71csl/ObOmSN8V+qj9aqOnoNiYugbBav/61wIgLfa6HFuptWJu
+hV5qtZsAtItxsNuYNYzzco/QkM9GWU4=
+-----END CERTIFICATE-----
+"""
+"""A client certificate as `generate_identity` makes it; its pin is `CLIENT_PIN`."""
+CLIENT_PIN = "aa0c51900d45c1ad1a18f725d7b9d89f08be4bc96bd37d5819af4370f86af110"
+CLIENT_PRIVATE_KEY = (
+    "-----BEGIN PRIVATE KEY-----\nnot-a-key\n-----END PRIVATE KEY-----\n"
+)
+"""Stands in for the key: the client that would load it is mocked."""
+IDENTITY = ClientIdentity(
+    certificate=CLIENT_CERTIFICATE, private_key=CLIENT_PRIVATE_KEY
+)
+SERVER_CERTIFICATE = """-----BEGIN CERTIFICATE-----
+MIIBIjCByKADAgECAhRCs60Ji4ZmxENgEm08nDF3sV8S9jAKBggqhkjOPQQDAjAQ
+MQ4wDAYDVQQDDAVyb2NrbzAgFw0wMDAxMDEwMDAwMDBaGA85OTk5MTIzMTIzNTk1
+OVowEDEOMAwGA1UEAwwFcm9ja28wWTATBgcqhkjOPQIBBggqhkjOPQMBBwNCAATV
+p53Y3hClpOxaxqkE/DxYHqy3kDL7iKQesvD/59MYKlBirP0QhL0QqDfPQ33WIN/M
+EZf6UadqxwA++Fha++8RMAoGCCqGSM49BAMCA0kAMEYCIQD7apiYhAS2WSwA1Vmg
+X9J+gHolFAVk+dgWEHi7u295awIhAMdyzVrdxA27Vibg6RyWvPwjkS+TrhobfGu5
+SYm88pab
+-----END CERTIFICATE-----
+"""
+"""The remote daemon's certificate; its pin is `SERVER_PIN`."""
+SERVER_PIN = "e131c2710026f2da21ca7feb8a2fe9b0548af3bd5cf456f53ca49e34b226192a"
+REMOTE_DATA = {
+    CONF_MODE: MODE_REMOTE,
+    CONF_HOST: REMOTE_HOST,
+    CONF_PORT: REMOTE_PORT,
+    CONF_CERTIFICATE: CLIENT_CERTIFICATE,
+    CONF_PRIVATE_KEY: CLIENT_PRIVATE_KEY,
+    CONF_SERVER_CERTIFICATE: SERVER_CERTIFICATE,
+}
+"""A remote entry's data, as pairing `IDENTITY` with the daemon makes it."""
 
 HELLO = Hello.from_dict(
     {
@@ -137,21 +186,34 @@ class MockClients:
     def __init__(self) -> None:
         """Start with no client."""
         self.clients: list[MagicMock] = []
+        """Every client created, of a socket or a remote daemon, in order."""
         self.paths: list[str] = []
+        """The socket of each client created with `RockoClient(...)`."""
+        self.remote_calls: list[Any] = []
+        """The `call` of each client created with `RockoClient.remote(...)`."""
         self.connect_errors: list[BaseException] = []
         """Raised by the next clients' `connect`, one each, in order."""
         self.configure: list[Callable[[MagicMock], object]] = []
         """Applied to the next clients, one each, in order."""
 
     def __call__(self, socket_path: str, **kwargs: Any) -> MagicMock:
-        """Create the next client."""
+        """Create the next client, of a control socket."""
+        self.paths.append(socket_path)
+        return self._next()
+
+    def remote(self, host: str, port: int, **kwargs: Any) -> MagicMock:
+        """Create the next client, of a remote daemon."""
+        self.remote_calls.append(call(host, port, **kwargs))
+        return self._next()
+
+    def _next(self) -> MagicMock:
+        """A new client, with the next queued error and configuration."""
         client = _mock_client()
         if self.connect_errors:
             client.connect.side_effect = self.connect_errors.pop(0)
         if self.configure:
             self.configure.pop(0)(client)
         self.clients.append(client)
-        self.paths.append(socket_path)
         return client
 
     @property
@@ -210,11 +272,13 @@ def auto_enable_custom_integrations(enable_custom_integrations: None) -> None:
 def mock_clients() -> Generator[MockClients]:
     """Patch `RockoClient` wherever the integration creates one."""
     clients = MockClients()
+    client_class = MagicMock(side_effect=clients)
+    client_class.remote.side_effect = clients.remote
     with (
-        patch("custom_components.rocko.RockoClient", side_effect=clients),
-        patch("custom_components.rocko.connection.RockoClient", side_effect=clients),
-        patch("custom_components.rocko.server.RockoClient", side_effect=clients),
-        patch("custom_components.rocko.config_flow.RockoClient", side_effect=clients),
+        patch("custom_components.rocko.RockoClient", client_class),
+        patch("custom_components.rocko.connection.RockoClient", client_class),
+        patch("custom_components.rocko.server.RockoClient", client_class),
+        patch("custom_components.rocko.config_flow.RockoClient", client_class),
     ):
         yield clients
 
@@ -271,6 +335,12 @@ def mock_spawn_entry() -> MockConfigEntry:
         title="rocko",
         data={CONF_MODE: MODE_SPAWN, CONF_BINARY: BINARY_PATH},
     )
+
+
+@pytest.fixture
+def mock_remote_entry() -> MockConfigEntry:
+    """An entry that connects to a daemon on another host."""
+    return MockConfigEntry(domain=DOMAIN, title="rocko", data=REMOTE_DATA)
 
 
 @pytest.fixture

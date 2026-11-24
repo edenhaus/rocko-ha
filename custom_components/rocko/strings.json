@@ -10,6 +10,13 @@
       "binary_not_found": "There is no file at this path.",
       "cannot_connect": "Failed to connect",
       "invalid_binary": "The file is not a rocko binary: running it with `--version` did not print a rocko version.",
+      "invalid_pairing_code": "This is not a pairing code. A code looks like `ROCKO1-` followed by two groups of hex digits; copy it whole from `rocko pair` or rocko's log.",
+      "pairing_expired": "rocko has no open pairing code: the code expired after 10 minutes, was used already or was replaced by a newer one. Run `rocko pair` on the rocko host again and enter the new code.",
+      "pairing_failed": "rocko did not accept the pairing. Check rocko's log, run `rocko pair` again and enter the new code.",
+      "pairing_rejected": "rocko refused this pairing code. Check that you entered the newest code `rocko pair` printed, without changes.",
+      "server_certificate": "rocko's certificate was made by an older rocko and lacks the name Home Assistant checks. Run `rocko identity --reissue` on the rocko host, restart rocko, then pair with a new code.",
+      "server_pin_mismatch": "This host is not the rocko the code came from: the certificate that answers at this host and port is not the one the code names. Check the host and port, or take a code from the rocko that listens there.",
+      "timeout_connect": "rocko did not answer in time. Check the host and port, and that the port is reachable from Home Assistant.",
       "unknown": "Unexpected error"
     },
     "step": {
@@ -26,8 +33,23 @@
         "description": "Choose how Home Assistant reaches rocko.",
         "menu_options": {
           "connect": "Connect to a running rocko",
+          "remote": "Connect to rocko on another host",
           "spawn": "Run rocko"
         }
+      },
+      "remote": {
+        "title": "Connect to rocko on another host",
+        "data": {
+          "host": "Host",
+          "port": "Port",
+          "pairing_code": "Pairing code"
+        },
+        "data_description": {
+          "host": "Host name or IP address of the host where rocko runs.",
+          "port": "TCP port of rocko's control listener, as `ROCKO_CONTROL_LISTEN` sets it.",
+          "pairing_code": "The one-time code `rocko pair` prints on the rocko host. It is valid for 10 minutes and pairs Home Assistant once; it is not stored."
+        },
+        "description": "Connect to a rocko in another container or on another host, over its control listener with mutual TLS.\n\nOn the rocko host, start rocko with its control listener on, for example `ROCKO_CONTROL_LISTEN=[::]:18557`, and make that TCP port reachable from Home Assistant. Then run `rocko pair` there (a rocko that has no client yet also logs a code at startup) and enter the code below within 10 minutes."
       },
       "spawn": {
         "data": {
@@ -42,6 +64,7 @@
         "description": "rocko is a media daemon that serves your cameras to the browser over WebRTC. Choose how Home Assistant reaches it.",
         "menu_options": {
           "connect": "Connect to a running rocko",
+          "remote": "Connect to rocko on another host",
           "spawn": "Run rocko"
         }
       }

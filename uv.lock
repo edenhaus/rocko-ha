@@ -2957,16 +2957,13 @@ wheels = [
 
 [[package]]
 name = "rocko-client"
-version = "0.0.1"
-source = { registry = "https://pypi.org/simple" }
+version = "0.0.0"
+source = { git = "https://github.com/edenhaus/rocko-clients?subdirectory=python&rev=81e9eaab6d81efe717b48f1734fb51b7602880ea#81e9eaab6d81efe717b48f1734fb51b7602880ea" }
 dependencies = [
     { name = "aiohttp" },
+    { name = "cryptography" },
     { name = "mashumaro" },
     { name = "orjson" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/16/cd/59ff3e08755a9785805f92bff093640653103ca0067947845af6a97692ac/rocko_client-0.0.1.tar.gz", hash = "sha256:03ab4a8a97cb65a398ee5e56434a2dd4424ffaf65a4b505841587376bddcc715", size = 39224, upload-time = "2026-11-24T20:57:08.63Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/d2/2a/7d52c3b5fa4688ca4ff520e526a9cfcc8f52db8528dbaec96be106a98d48/rocko_client-0.0.1-py3-none-any.whl", hash = "sha256:cc6996e2c0148bf89dc978495fbd2f004a6060c19d68773a6d5d55bdb85be386", size = 40137, upload-time = "2026-11-24T20:57:07.549Z" },
 ]
 
 [[package]]
@@ -2992,7 +2989,7 @@ dev = [
     { name = "mypy", specifier = "==2.4.0" },
     { name = "pytest-homeassistant-custom-component", specifier = "==0.13.375" },
     { name = "pyturbojpeg", specifier = "==1.8.3" },
-    { name = "rocko-client", specifier = "==0.0.1" },
+    { name = "rocko-client", git = "https://github.com/edenhaus/rocko-clients?subdirectory=python&rev=81e9eaab6d81efe717b48f1734fb51b7602880ea" },
     { name = "ruff", specifier = "==0.17.3" },
 ]
 
