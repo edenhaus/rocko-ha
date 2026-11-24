@@ -2,9 +2,9 @@
 
 from unittest.mock import MagicMock, Mock
 
-from lotse_client import ApiVersionError, CannotConnectError, ConnectionClosedError
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
+from rocko_client import ApiVersionError, CannotConnectError, ConnectionClosedError
 
 from custom_components.rocko import RockoData
 from custom_components.rocko.provider import DATA_HANDOVER, RockoWebRTCProvider

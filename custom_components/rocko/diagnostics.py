@@ -8,7 +8,7 @@ TURN credentials.
 
 from typing import Any
 
-from lotse_client import LotseError
+from rocko_client import RockoError
 
 from homeassistant.components.diagnostics import async_redact_data
 from homeassistant.core import HomeAssistant
@@ -41,6 +41,6 @@ async def async_get_config_entry_diagnostics(
         try:
             data["metrics"] = (await client.metrics.get()).to_dict()
             data["streams"] = (await client.stream.list()).to_dict()["streams"]
-        except LotseError as err:
+        except RockoError as err:
             data["error"] = str(err)
     return async_redact_data(data, TO_REDACT)

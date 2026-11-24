@@ -17,8 +17,8 @@ import re
 from typing import Final, override
 from urllib.parse import urlsplit
 
-from lotse_client import CommandError, LotseClient, LotseError, Subscription
-from lotse_client.models import (
+from rocko_client import CommandError, RockoClient, RockoError, Subscription
+from rocko_client.models import (
     HttpSource,
     HttpsSource,
     IceServer,
@@ -122,7 +122,7 @@ class _Session:
     session_id: str
     stream_id: str
     send_message: WebRTCSendMessage
-    client: LotseClient | None = None
+    client: RockoClient | None = None
     """The connection the subscription is on; `None` before it opened."""
     subscription: Subscription[SessionEvent] | None = None
     task: asyncio.Task[None] | None = None
@@ -241,7 +241,7 @@ class RockoWebRTCProvider(CameraWebRTCProvider):
         except CommandError as err:
             self._async_fail(session, err.code, err.message)
             return
-        except LotseError as err:
+        except RockoError as err:
             self._async_fail(session, ERROR_UNAVAILABLE, str(err))
             return
         _LOGGER.debug("Session %s opened on stream %s", session_id, stream_id)
@@ -304,7 +304,7 @@ class RockoWebRTCProvider(CameraWebRTCProvider):
             return
         try:
             await client.stream.delete(stream_id=stream_id)
-        except LotseError as err:
+        except RockoError as err:
             _LOGGER.warning("Could not delete stream %s: %s", stream_id, err)
         else:
             _LOGGER.debug("Deleted stream %s", stream_id)
@@ -318,7 +318,7 @@ class RockoWebRTCProvider(CameraWebRTCProvider):
         if stream_id_for(camera.entity_id) in self._cameras or settings.preload_stream:
             await self._async_put_camera(camera)
 
-    async def async_on_connected(self, client: LotseClient) -> None:
+    async def async_on_connected(self, client: RockoClient) -> None:
         """Adopt the sessions of a lost connection, then put every stream again."""
         for session in list(self._sessions.values()):
             if session.client is not client and not session.opening:
@@ -348,7 +348,7 @@ class RockoWebRTCProvider(CameraWebRTCProvider):
                 session.task.cancel()
         self._sessions.clear()
 
-    async def _async_put_stream(self, client: LotseClient, camera: Camera) -> None:
+    async def _async_put_stream(self, client: RockoClient, camera: Camera) -> None:
         """Put the camera's stream with its current source and preferences."""
         if not (stream_source := await camera.stream_source()):
             raise _NoStreamSourceError
@@ -389,10 +389,10 @@ class RockoWebRTCProvider(CameraWebRTCProvider):
                 "Camera of stream %s has a stream source rocko does not read",
                 stream_id,
             )
-        except LotseError as err:
+        except RockoError as err:
             _LOGGER.warning("Could not put stream %s: %s", stream_id, err)
 
-    async def _async_adopt(self, client: LotseClient, session: _Session) -> None:
+    async def _async_adopt(self, client: RockoClient, session: _Session) -> None:
         """Take a session back after a reconnect, or end it in the browser."""
         if session.task is not None:
             session.task.cancel()
@@ -407,7 +407,7 @@ class RockoWebRTCProvider(CameraWebRTCProvider):
             )
             self._async_fail(session, err.code, err.message)
             return
-        except LotseError as err:
+        except RockoError as err:
             _LOGGER.debug("Session %s not adopted: %s", session.session_id, err)
             return
         _LOGGER.info("Adopted session %s", session.session_id)
@@ -417,7 +417,7 @@ class RockoWebRTCProvider(CameraWebRTCProvider):
     def _async_attach(
         self,
         session: _Session,
-        client: LotseClient,
+        client: RockoClient,
         subscription: Subscription[SessionEvent],
     ) -> None:
         """Relay a session's subscription and pass on the candidates it kept."""
@@ -462,7 +462,7 @@ class RockoWebRTCProvider(CameraWebRTCProvider):
         try:
             async for event in subscription:
                 self._async_handle_event(session, event)
-        except LotseError as err:
+        except RockoError as err:
             _LOGGER.debug("Session %s lost its connection: %s", session.session_id, err)
 
     @callback
@@ -515,7 +515,7 @@ class RockoWebRTCProvider(CameraWebRTCProvider):
                 _LOGGER.debug("Session %s started", event.session_id)
 
     async def _async_send_candidate(
-        self, client: LotseClient, session_id: str, candidate: RTCIceCandidateInit
+        self, client: RockoClient, session_id: str, candidate: RTCIceCandidateInit
     ) -> None:
         """Send one browser candidate to the daemon; a failure is logged."""
         try:
@@ -525,16 +525,16 @@ class RockoWebRTCProvider(CameraWebRTCProvider):
                 sdp_mid=candidate.sdp_mid,
                 sdp_mline_index=candidate.sdp_m_line_index,
             )
-        except LotseError as err:
+        except RockoError as err:
             _LOGGER.debug("Candidate for session %s not sent: %s", session_id, err)
 
     async def _async_close_on_daemon(
-        self, client: LotseClient, session_id: str
+        self, client: RockoClient, session_id: str
     ) -> None:
         """End a session this connection does not own; never raises."""
         try:
             await client.session.close(session_id=session_id)
-        except LotseError as err:
+        except RockoError as err:
             _LOGGER.debug("Closing session %s failed: %s", session_id, err)
 
     async def _async_unsubscribe(
@@ -543,5 +543,5 @@ class RockoWebRTCProvider(CameraWebRTCProvider):
         """End a session's subscription, and so the session; never raises."""
         try:
             await subscription.unsubscribe()
-        except LotseError as err:
+        except RockoError as err:
             _LOGGER.debug("Unsubscribing session %s failed: %s", session_id, err)

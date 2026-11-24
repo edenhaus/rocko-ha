@@ -7,13 +7,19 @@ from typing import Any
 from unittest.mock import MagicMock, Mock, call
 
 from freezegun.api import FrozenDateTimeFactory
-from lotse_client import (
+import pytest
+from pytest_homeassistant_custom_component.common import (
+    MockConfigEntry,
+    async_fire_time_changed,
+)
+from pytest_homeassistant_custom_component.typing import WebSocketGenerator
+from rocko_client import (
     CannotConnectError,
     CommandError,
     ConnectionClosedError,
     Subscription,
 )
-from lotse_client.models import (
+from rocko_client.models import (
     HttpSource,
     HttpsSource,
     IceServer,
@@ -27,12 +33,6 @@ from lotse_client.models import (
     SessionEventState,
     SessionEventWarning,
 )
-import pytest
-from pytest_homeassistant_custom_component.common import (
-    MockConfigEntry,
-    async_fire_time_changed,
-)
-from pytest_homeassistant_custom_component.typing import WebSocketGenerator
 from webrtc_models import RTCConfiguration, RTCIceCandidateInit, RTCIceServer
 
 from custom_components.rocko.const import (

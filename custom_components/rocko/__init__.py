@@ -3,7 +3,7 @@
 from dataclasses import dataclass
 import logging
 
-from lotse_client import ApiVersionError, LotseClient, LotseError
+from rocko_client import ApiVersionError, RockoClient, RockoError
 
 from homeassistant.components.camera import (
     DOMAIN as CAMERA_DOMAIN,
@@ -51,7 +51,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: RockoConfigEntry) -> boo
             translation_key="api_version",
             translation_placeholders={"daemon": err.daemon, "client": err.client},
         ) from err
-    except (LotseError, RockoServerError) as err:
+    except (RockoError, RockoServerError) as err:
         await connection.async_stop()
         raise ConfigEntryNotReady(
             translation_domain=DOMAIN,
@@ -62,7 +62,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: RockoConfigEntry) -> boo
     provider = RockoWebRTCProvider(hass, entry, connection)
     entry.runtime_data = RockoData(connection, provider)
 
-    async def _async_on_connected(client: LotseClient) -> None:
+    async def _async_on_connected(client: RockoClient) -> None:
         """Check the new daemon's sandbox, then take the sessions back."""
         if (info := connection.info) is not None:
             async_update_sandbox_issues(hass, info.sandbox)
@@ -107,7 +107,7 @@ async def async_remove_entry(hass: HomeAssistant, entry: RockoConfigEntry) -> No
         stream_id_for(entity_id)
         for entity_id in hass.states.async_entity_ids(CAMERA_DOMAIN)
     }
-    client = LotseClient(entry.data[CONF_SOCKET])
+    client = RockoClient(entry.data[CONF_SOCKET])
     try:
         await client.connect()
         try:
@@ -117,5 +117,5 @@ async def async_remove_entry(hass: HomeAssistant, entry: RockoConfigEntry) -> No
                 _LOGGER.debug("Deleted stream %s", stream_id)
         finally:
             await client.close()
-    except LotseError as err:
+    except RockoError as err:
         _LOGGER.warning("Could not delete the cameras' streams from rocko: %s", err)

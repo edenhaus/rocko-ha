@@ -12,7 +12,7 @@ rules:
   config-flow-test-coverage: done
   dependency-transparency:
     status: todo
-    comment: lotse-client is installed from a git commit; it is not released to PyPI yet.
+    comment: rocko-client is installed from a git commit; it is not released to PyPI yet.
   docs-actions:
     status: exempt
     comment: The integration has no actions.

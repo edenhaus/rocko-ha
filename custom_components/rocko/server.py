@@ -18,7 +18,7 @@ import shutil
 from tempfile import mkdtemp
 from typing import Any, Final
 
-from lotse_client import ApiVersionError, LotseClient, LotseError
+from rocko_client import ApiVersionError, RockoClient, RockoError
 
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
@@ -206,10 +206,10 @@ class RockoServer:
                         raise RockoServerError(
                             f"rocko exited with code {process.returncode} before it was ready"
                         )
-                    client = LotseClient(socket)
+                    client = RockoClient(socket)
                     try:
                         hello = await client.connect()
-                    except LotseError as err:
+                    except RockoError as err:
                         if isinstance(err, ApiVersionError):
                             raise
                         _LOGGER.debug("rocko is not ready yet: %s", err)

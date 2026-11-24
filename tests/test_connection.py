@@ -6,12 +6,12 @@ import logging
 from unittest.mock import MagicMock
 
 from freezegun.api import FrozenDateTimeFactory
-from lotse_client import CannotConnectError, ConnectionClosedError
 import pytest
 from pytest_homeassistant_custom_component.common import (
     MockConfigEntry,
     async_fire_time_changed,
 )
+from rocko_client import CannotConnectError, ConnectionClosedError
 
 from custom_components.rocko.connection import RockoConnection, reconnect_delay
 from custom_components.rocko.server import RockoServerError
