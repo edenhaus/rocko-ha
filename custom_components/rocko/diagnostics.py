@@ -1,4 +1,4 @@
-"""Diagnostics support for lotse.
+"""Diagnostics support for rocko.
 
 Stream source URLs carry camera credentials. The daemon already reports
 them without their userinfo, but every URL and credential is redacted here
@@ -13,7 +13,7 @@ from lotse_client import LotseError
 from homeassistant.components.diagnostics import async_redact_data
 from homeassistant.core import HomeAssistant
 
-from . import LotseConfigEntry
+from . import RockoConfigEntry
 
 TO_REDACT = {
     "credential",
@@ -26,7 +26,7 @@ TO_REDACT = {
 
 
 async def async_get_config_entry_diagnostics(
-    hass: HomeAssistant, entry: LotseConfigEntry
+    hass: HomeAssistant, entry: RockoConfigEntry
 ) -> dict[str, Any]:
     """Return diagnostics for a config entry."""
     connection = entry.runtime_data.connection

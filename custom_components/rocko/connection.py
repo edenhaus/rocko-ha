@@ -1,4 +1,4 @@
-"""The control connection to the lotse daemon, supervised.
+"""The control connection to the rocko daemon, supervised.
 
 There is one connection for the daemon's whole life. It is pinged every
 `PING_INTERVAL` seconds; a ping without a pong within `PING_TIMEOUT`, a
@@ -22,7 +22,7 @@ from homeassistant.core import CALLBACK_TYPE, HassJob, HomeAssistant, callback
 from homeassistant.helpers.event import async_call_later, async_track_time_interval
 
 from .const import DOMAIN, PING_INTERVAL, PING_TIMEOUT, RECONNECT_MAX_DELAY
-from .server import LotseServer, LotseServerError
+from .server import RockoServer, RockoServerError
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -38,11 +38,11 @@ def reconnect_delay(attempt: int) -> int:
     return min(1 << min(attempt - 1, 16), RECONNECT_MAX_DELAY)
 
 
-class LotseConnection:
-    """The supervised control connection to one lotse daemon."""
+class RockoConnection:
+    """The supervised control connection to one rocko daemon."""
 
     def __init__(
-        self, hass: HomeAssistant, entry: ConfigEntry, endpoint: str | LotseServer
+        self, hass: HomeAssistant, entry: ConfigEntry, endpoint: str | RockoServer
     ) -> None:
         """Prepare; `endpoint` is a control socket's path or a daemon to spawn."""
         self._hass = hass
@@ -61,9 +61,9 @@ class LotseConnection:
         self._stopped = False
 
     @property
-    def server(self) -> LotseServer | None:
+    def server(self) -> RockoServer | None:
         """The daemon Home Assistant runs, if it runs one."""
-        return self._endpoint if isinstance(self._endpoint, LotseServer) else None
+        return self._endpoint if isinstance(self._endpoint, RockoServer) else None
 
     @callback
     def async_add_listener(self, listener: ConnectedListener) -> None:
@@ -73,7 +73,7 @@ class LotseConnection:
     async def async_start(self) -> None:
         """Open the connection, spawning the daemon first if Home Assistant runs it."""
         client, info = await self._async_open(restart=False)
-        _LOGGER.info("Connected to lotse %s, API %s", info.version, client.hello.api)
+        _LOGGER.info("Connected to rocko %s, API %s", info.version, client.hello.api)
         self._async_connected(client, info)
 
     async def async_stop(self) -> None:
@@ -150,11 +150,11 @@ class LotseConnection:
         self._async_lost(client, f"connection closed: {error}", restart=False)
 
     async def _async_watch_process(
-        self, client: LotseClient, server: LotseServer
+        self, client: LotseClient, server: RockoServer
     ) -> None:
         """Notice the spawned daemon exiting."""
         code = await server.async_wait()
-        self._async_lost(client, f"lotse exited with code {code}", restart=True)
+        self._async_lost(client, f"rocko exited with code {code}", restart=True)
 
     @callback
     def _async_ping(self, _now: datetime) -> None:
@@ -179,7 +179,7 @@ class LotseConnection:
         """Handle the loss of `client`'s connection: close it and reconnect."""
         if client is not self.client or self._stopped:
             return
-        _LOGGER.warning("Lost the connection to lotse: %s", reason)
+        _LOGGER.warning("Lost the connection to rocko: %s", reason)
         self.client = None
         self._restart = restart
         self._async_cancel_supervision()
@@ -199,7 +199,7 @@ class LotseConnection:
                 self._hass, self._async_reconnect(), f"{DOMAIN} reconnect"
             )
             return
-        _LOGGER.info("Reconnecting to lotse in %s s", delay)
+        _LOGGER.info("Reconnecting to rocko in %s s", delay)
         self._unsub_retry = async_call_later(
             self._hass,
             delay,
@@ -218,10 +218,10 @@ class LotseConnection:
         """Make one reconnect attempt; schedule the next if it fails."""
         restart = self.server is not None and (self._restart or self._attempt > 0)
         if restart:
-            _LOGGER.info("Restarting lotse")
+            _LOGGER.info("Restarting rocko")
         try:
             client, info = await self._async_open(restart=restart)
-        except (LotseError, LotseServerError) as err:
+        except (LotseError, RockoServerError) as err:
             self._attempt += 1
             _LOGGER.debug("Reconnect attempt %s failed: %s", self._attempt, err)
             if not self._stopped:
@@ -230,7 +230,7 @@ class LotseConnection:
         if self._stopped:
             await client.close()
             return
-        _LOGGER.info("Reconnected to lotse %s", info.version)
+        _LOGGER.info("Reconnected to rocko %s", info.version)
         self._async_connected(client, info)
         for listener in self._listeners:
             await listener(client)

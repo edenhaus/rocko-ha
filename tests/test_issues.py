@@ -1,4 +1,4 @@
-"""Tests for the repair issues from lotse's sandbox report."""
+"""Tests for the repair issues from rocko's sandbox report."""
 
 from typing import Any
 
@@ -6,8 +6,8 @@ from lotse_client.models import InfoResult
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.lotse.const import DOMAIN
-from custom_components.lotse.issues import (
+from custom_components.rocko.const import DOMAIN
+from custom_components.rocko.issues import (
     ISSUE_SANDBOX_DEGRADED,
     ISSUE_SANDBOX_OFF,
     LEARN_MORE_URL,
@@ -98,7 +98,7 @@ async def test_sandbox_degraded(
     assert issue.translation_placeholders == {"layers": layers}
     assert issue.learn_more_url == LEARN_MORE_URL
     assert issue_registry.async_get_issue(DOMAIN, ISSUE_SANDBOX_OFF) is None
-    assert f"lotse runs without these sandbox layers: {layers}" in caplog.text
+    assert f"rocko runs without these sandbox layers: {layers}" in caplog.text
 
 
 async def test_issues_follow_reconnects(

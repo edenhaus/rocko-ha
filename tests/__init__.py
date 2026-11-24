@@ -1,4 +1,4 @@
-"""Tests for the lotse integration."""
+"""Tests for the rocko integration."""
 
 import asyncio
 from typing import override

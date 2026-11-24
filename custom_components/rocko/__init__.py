@@ -1,4 +1,4 @@
-"""The lotse integration: the lotse media daemon as the cameras' WebRTC provider."""
+"""The rocko integration: the rocko media daemon as the cameras' WebRTC provider."""
 
 from dataclasses import dataclass
 import logging
@@ -14,34 +14,34 @@ from homeassistant.const import EVENT_HOMEASSISTANT_STOP
 from homeassistant.core import Event, HomeAssistant
 from homeassistant.exceptions import ConfigEntryError, ConfigEntryNotReady
 
-from .connection import LotseConnection
+from .connection import RockoConnection
 from .const import CONF_BINARY, CONF_MODE, CONF_SOCKET, DOMAIN, MODE_SPAWN
 from .issues import async_delete_sandbox_issues, async_update_sandbox_issues
-from .provider import DATA_HANDOVER, LotseWebRTCProvider, stream_id_for
-from .server import LotseServer, LotseServerError
+from .provider import DATA_HANDOVER, RockoWebRTCProvider, stream_id_for
+from .server import RockoServer, RockoServerError
 
 _LOGGER = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True, slots=True)
-class LotseData:
+class RockoData:
     """What a loaded entry keeps."""
 
-    connection: LotseConnection
-    provider: LotseWebRTCProvider
+    connection: RockoConnection
+    provider: RockoWebRTCProvider
 
 
-type LotseConfigEntry = ConfigEntry[LotseData]
+type RockoConfigEntry = ConfigEntry[RockoData]
 
 
-async def async_setup_entry(hass: HomeAssistant, entry: LotseConfigEntry) -> bool:
-    """Connect to lotse, or run it, and register it as the WebRTC provider."""
-    endpoint: str | LotseServer
+async def async_setup_entry(hass: HomeAssistant, entry: RockoConfigEntry) -> bool:
+    """Connect to rocko, or run it, and register it as the WebRTC provider."""
+    endpoint: str | RockoServer
     if entry.data[CONF_MODE] == MODE_SPAWN:
-        endpoint = LotseServer(hass, entry.data[CONF_BINARY])
+        endpoint = RockoServer(hass, entry.data[CONF_BINARY])
     else:
         endpoint = entry.data[CONF_SOCKET]
-    connection = LotseConnection(hass, entry, endpoint)
+    connection = RockoConnection(hass, entry, endpoint)
     try:
         await connection.async_start()
     except ApiVersionError as err:
@@ -51,7 +51,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: LotseConfigEntry) -> boo
             translation_key="api_version",
             translation_placeholders={"daemon": err.daemon, "client": err.client},
         ) from err
-    except (LotseError, LotseServerError) as err:
+    except (LotseError, RockoServerError) as err:
         await connection.async_stop()
         raise ConfigEntryNotReady(
             translation_domain=DOMAIN,
@@ -59,8 +59,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: LotseConfigEntry) -> boo
             translation_placeholders={"error": str(err)},
         ) from err
 
-    provider = LotseWebRTCProvider(hass, entry, connection)
-    entry.runtime_data = LotseData(connection, provider)
+    provider = RockoWebRTCProvider(hass, entry, connection)
+    entry.runtime_data = RockoData(connection, provider)
 
     async def _async_on_connected(client: LotseClient) -> None:
         """Check the new daemon's sandbox, then take the sessions back."""
@@ -86,7 +86,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: LotseConfigEntry) -> boo
     return True
 
 
-async def async_unload_entry(hass: HomeAssistant, entry: LotseConfigEntry) -> bool:
+async def async_unload_entry(hass: HomeAssistant, entry: RockoConfigEntry) -> bool:
     """Unload the entry; a daemon Home Assistant runs is stopped."""
     data = entry.runtime_data
     # A daemon that keeps running keeps the sessions for its grace period,
@@ -97,7 +97,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: LotseConfigEntry) -> bo
     return True
 
 
-async def async_remove_entry(hass: HomeAssistant, entry: LotseConfigEntry) -> None:
+async def async_remove_entry(hass: HomeAssistant, entry: RockoConfigEntry) -> None:
     """Delete the cameras' streams from a daemon that keeps running."""
     # No entry follows that could adopt the sessions left behind.
     hass.data.pop(DATA_HANDOVER, None)
@@ -118,4 +118,4 @@ async def async_remove_entry(hass: HomeAssistant, entry: LotseConfigEntry) -> No
         finally:
             await client.close()
     except LotseError as err:
-        _LOGGER.warning("Could not delete the cameras' streams from lotse: %s", err)
+        _LOGGER.warning("Could not delete the cameras' streams from rocko: %s", err)

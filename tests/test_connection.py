@@ -1,4 +1,4 @@
-"""Tests for supervising the connection to lotse."""
+"""Tests for supervising the connection to rocko."""
 
 import asyncio
 from datetime import timedelta
@@ -13,8 +13,8 @@ from pytest_homeassistant_custom_component.common import (
     async_fire_time_changed,
 )
 
-from custom_components.lotse.connection import LotseConnection, reconnect_delay
-from custom_components.lotse.server import LotseServerError
+from custom_components.rocko.connection import RockoConnection, reconnect_delay
+from custom_components.rocko.server import RockoServerError
 from homeassistant.const import EVENT_HOMEASSISTANT_STOP
 from homeassistant.core import HomeAssistant
 
@@ -36,7 +36,7 @@ async def spawned(
     return mock_spawn_entry
 
 
-def _connection(entry: MockConfigEntry) -> LotseConnection:
+def _connection(entry: MockConfigEntry) -> RockoConnection:
     return entry.runtime_data.connection
 
 
@@ -86,11 +86,11 @@ async def test_ping_timeout_reconnects(
     old.ping.side_effect = TimeoutError
     await _tick(hass, freezer, 10)
 
-    assert "Lost the connection to lotse: no pong within 5 s" in caplog.text
+    assert "Lost the connection to rocko: no pong within 5 s" in caplog.text
     old.close.assert_awaited_once()
     assert len(mock_clients.clients) == 2
     assert _connection(init_integration).client is mock_clients.last
-    assert "Reconnected to lotse 0.1.0" in caplog.text
+    assert "Reconnected to rocko 0.1.0" in caplog.text
 
     # The old connection's ping timer is gone, the new one pings.
     await _tick(hass, freezer, 10)
@@ -108,7 +108,7 @@ async def test_ping_fails_reconnects(
     """A ping that fails on a closed connection reconnects."""
     mock_clients.last.ping.side_effect = ConnectionClosedError("not connected")
     await _tick(hass, freezer, 10)
-    assert "Lost the connection to lotse: ping failed: not connected" in caplog.text
+    assert "Lost the connection to rocko: ping failed: not connected" in caplog.text
     assert len(mock_clients.clients) == 2
 
 
@@ -122,7 +122,7 @@ async def test_connection_closed_reconnects(
     mock_clients.last.closed.set_result(ConnectionClosedError("the daemon shut down"))
     await run_tasks(hass)
     assert (
-        "Lost the connection to lotse: connection closed: the daemon shut down"
+        "Lost the connection to rocko: connection closed: the daemon shut down"
         in caplog.text
     )
     assert len(mock_clients.clients) == 2
@@ -171,17 +171,17 @@ async def test_reconnect_backoff(
     await run_tasks(hass)
     assert len(mock_clients.clients) == 2
     assert _connection(init_integration).client is None
-    assert "Reconnecting to lotse in 1 s" in caplog.text
+    assert "Reconnecting to rocko in 1 s" in caplog.text
 
     await _tick(hass, freezer, 1)
     assert len(mock_clients.clients) == 3
-    assert "Reconnecting to lotse in 2 s" in caplog.text
+    assert "Reconnecting to rocko in 2 s" in caplog.text
 
     await _tick(hass, freezer, 1)
     assert len(mock_clients.clients) == 3
     await _tick(hass, freezer, 1)
     assert len(mock_clients.clients) == 4
-    assert "Reconnecting to lotse in 4 s" in caplog.text
+    assert "Reconnecting to rocko in 4 s" in caplog.text
 
     await _tick(hass, freezer, 4)
     assert len(mock_clients.clients) == 5
@@ -192,7 +192,7 @@ async def test_reconnect_backoff(
     mock_clients.connect_errors = [CannotConnectError("refused")]
     mock_clients.last.closed.set_result(None)
     await run_tasks(hass)
-    assert "Reconnecting to lotse in 1 s" in caplog.text
+    assert "Reconnecting to rocko in 1 s" in caplog.text
 
 
 async def test_unload_while_waiting_to_reconnect(
@@ -275,8 +275,8 @@ async def test_spawned_exit_restarts(
     caplog.set_level(logging.INFO)
     mock_server.exit(1)
     await run_tasks(hass)
-    assert "Lost the connection to lotse: lotse exited with code 1" in caplog.text
-    assert "Restarting lotse" in caplog.text
+    assert "Lost the connection to rocko: rocko exited with code 1" in caplog.text
+    assert "Restarting rocko" in caplog.text
     mock_server.async_ensure_running.assert_awaited_with(restart=True)
     assert len(mock_clients.clients) == 2
     assert _connection(spawned).client is mock_clients.last
@@ -321,7 +321,7 @@ async def test_spawned_restart_fails(
     freezer: FrozenDateTimeFactory,
 ) -> None:
     """A restart that fails is retried later."""
-    mock_server.async_ensure_running.side_effect = [LotseServerError("exited"), "s"]
+    mock_server.async_ensure_running.side_effect = [RockoServerError("exited"), "s"]
     mock_server.exit(1)
     await run_tasks(hass)
     assert _connection(spawned).client is None

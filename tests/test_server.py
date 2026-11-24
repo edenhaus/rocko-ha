@@ -1,4 +1,4 @@
-"""Tests for running the lotse daemon."""
+"""Tests for running the rocko daemon."""
 
 import asyncio
 from collections.abc import Generator
@@ -11,11 +11,11 @@ from unittest.mock import AsyncMock, Mock, patch
 from lotse_client import ApiVersionError, CannotConnectError
 import pytest
 
-from custom_components.lotse.server import (
+from custom_components.rocko.server import (
     LINE_LIMIT,
     TEXT_LIMIT,
-    LotseServer,
-    LotseServerError,
+    RockoServer,
+    RockoServerError,
     async_get_version,
 )
 from homeassistant.core import HomeAssistant
@@ -23,7 +23,7 @@ from homeassistant.core import HomeAssistant
 from . import run_tasks
 from .conftest import BINARY_PATH, MockClients
 
-SERVER = "custom_components.lotse.server"
+SERVER = "custom_components.rocko.server"
 
 
 class FakeProcess:
@@ -60,7 +60,7 @@ class FakeProcess:
 @pytest.fixture
 def spawn_dir(tmp_path: Path) -> Generator[Path]:
     """The directory `mkdtemp` makes for a spawn."""
-    directory = tmp_path / "lotse-spawn"
+    directory = tmp_path / "rocko-spawn"
 
     def _mkdtemp(**kwargs: Any) -> str:
         directory.mkdir(mode=0o700)
@@ -98,9 +98,9 @@ async def server(
     spawn_dir: Path,
     create_subprocess: AsyncMock,
     mock_clients: MockClients,
-) -> LotseServer:
+) -> RockoServer:
     """A server that is not started yet."""
-    return LotseServer(hass, BINARY_PATH)
+    return RockoServer(hass, BINARY_PATH)
 
 
 async def _hang() -> None:
@@ -117,8 +117,8 @@ def _version_process(stdout: bytes, returncode: int) -> AsyncMock:
 
 
 async def test_get_version() -> None:
-    """`lotse --version` prints the version after the name."""
-    process = _version_process(b"lotse 0.1.0\n", 0)
+    """`rocko --version` prints the version after the name."""
+    process = _version_process(b"rocko 0.1.0\n", 0)
     with patch(f"{SERVER}.asyncio.create_subprocess_exec", return_value=process) as run:
         assert await async_get_version(BINARY_PATH) == "0.1.0"
     assert run.call_args.args == (BINARY_PATH, "--version")
@@ -127,18 +127,18 @@ async def test_get_version() -> None:
 @pytest.mark.parametrize(
     ("stdout", "returncode"),
     [
-        (b"lotse 0.1.0\n", 1),
+        (b"rocko 0.1.0\n", 1),
         (b"other 0.1.0\n", 0),
-        (b"lotse\n", 0),
+        (b"rocko\n", 0),
         (b"", 0),
     ],
 )
-async def test_get_version_not_lotse(stdout: bytes, returncode: int) -> None:
-    """A binary that does not print a lotse version is refused."""
+async def test_get_version_not_rocko(stdout: bytes, returncode: int) -> None:
+    """A binary that does not print a rocko version is refused."""
     process = _version_process(stdout, returncode)
     with (
         patch(f"{SERVER}.asyncio.create_subprocess_exec", return_value=process),
-        pytest.raises(LotseServerError, match="is not a lotse binary"),
+        pytest.raises(RockoServerError, match="is not a rocko binary"),
     ):
         await async_get_version(BINARY_PATH)
 
@@ -150,7 +150,7 @@ async def test_get_version_cannot_run() -> None:
             f"{SERVER}.asyncio.create_subprocess_exec",
             side_effect=PermissionError("denied"),
         ),
-        pytest.raises(LotseServerError, match="cannot run"),
+        pytest.raises(RockoServerError, match="cannot run"),
     ):
         await async_get_version(BINARY_PATH)
 
@@ -164,7 +164,7 @@ async def test_get_version_timeout(kill_error: BaseException | None) -> None:
     with (
         patch(f"{SERVER}.asyncio.create_subprocess_exec", return_value=process),
         patch(f"{SERVER}.VERSION_TIMEOUT", 0.01),
-        pytest.raises(LotseServerError, match="did not finish"),
+        pytest.raises(RockoServerError, match="did not finish"),
     ):
         await async_get_version(BINARY_PATH)
     process.kill.assert_called_once()
@@ -173,7 +173,7 @@ async def test_get_version_timeout(kill_error: BaseException | None) -> None:
 
 async def test_start_and_stop(
     hass: HomeAssistant,
-    server: LotseServer,
+    server: RockoServer,
     spawn_dir: Path,
     create_subprocess: AsyncMock,
     process: FakeProcess,
@@ -182,7 +182,7 @@ async def test_start_and_stop(
 ) -> None:
     """The daemon is spawned in its own directory, probed until ready, then stopped."""
     caplog.set_level(logging.DEBUG)
-    socket = str(spawn_dir / "lotse.sock")
+    socket = str(spawn_dir / "rocko.sock")
     mock_clients.connect_errors = [CannotConnectError("not yet")]
 
     assert server.pid is None
@@ -201,27 +201,27 @@ async def test_start_and_stop(
     assert server.pid == 4242
     assert mock_clients.paths == [socket, socket]
     mock_clients.last.close.assert_awaited_once()
-    assert "lotse is not ready yet: not yet" in caplog.text
-    assert "lotse 0.1.0 is ready, pid 4242, API 0.1.0" in caplog.text
+    assert "rocko is not ready yet: not yet" in caplog.text
+    assert "rocko 0.1.0 is ready, pid 4242, API 0.1.0" in caplog.text
 
     await server.async_stop()
     process.terminate.assert_called_once()
     process.kill.assert_not_called()
     assert not spawn_dir.exists()
     assert not server.running
-    assert "lotse (pid 4242) stopped with code 0" in caplog.text
+    assert "rocko (pid 4242) stopped with code 0" in caplog.text
     assert f"Removed {spawn_dir}" in caplog.text
 
 
 async def test_ensure_running(
     hass: HomeAssistant,
-    server: LotseServer,
+    server: RockoServer,
     spawn_dir: Path,
     create_subprocess: AsyncMock,
     process: FakeProcess,
 ) -> None:
     """A running daemon is kept unless a restart is asked for."""
-    socket = str(spawn_dir / "lotse.sock")
+    socket = str(spawn_dir / "rocko.sock")
     assert await server.async_ensure_running() == socket
     assert create_subprocess.call_count == 1
 
@@ -244,7 +244,7 @@ async def test_ensure_running(
 
 async def test_unexpected_exit(
     hass: HomeAssistant,
-    server: LotseServer,
+    server: RockoServer,
     spawn_dir: Path,
     process: FakeProcess,
     caplog: pytest.LogCaptureFixture,
@@ -259,7 +259,7 @@ async def test_unexpected_exit(
     process.exit(101)
     assert await waiter == 101
     assert not server.running
-    assert "lotse (pid 4242) exited unexpectedly with code 101" in caplog.text
+    assert "rocko (pid 4242) exited unexpectedly with code 101" in caplog.text
 
     await server.async_stop()
     process.terminate.assert_not_called()
@@ -268,7 +268,7 @@ async def test_unexpected_exit(
 
 async def test_stop_kills_after_timeout(
     hass: HomeAssistant,
-    server: LotseServer,
+    server: RockoServer,
     process: FakeProcess,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
@@ -285,7 +285,7 @@ async def test_stop_kills_after_timeout(
 
 async def test_stop_process_gone(
     hass: HomeAssistant,
-    server: LotseServer,
+    server: RockoServer,
     spawn_dir: Path,
     process: FakeProcess,
 ) -> None:
@@ -305,7 +305,7 @@ async def test_stop_process_gone(
     assert not spawn_dir.exists()
 
 
-async def test_stop_not_started(hass: HomeAssistant, server: LotseServer) -> None:
+async def test_stop_not_started(hass: HomeAssistant, server: RockoServer) -> None:
     """Stopping a server that never started does nothing."""
     await server.async_stop()
     assert server.pid is None
@@ -313,7 +313,7 @@ async def test_stop_not_started(hass: HomeAssistant, server: LotseServer) -> Non
 
 async def test_remove_directory_fails(
     hass: HomeAssistant,
-    server: LotseServer,
+    server: RockoServer,
     spawn_dir: Path,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
@@ -326,20 +326,20 @@ async def test_remove_directory_fails(
 
 async def test_start_cannot_run(
     hass: HomeAssistant,
-    server: LotseServer,
+    server: RockoServer,
     spawn_dir: Path,
     create_subprocess: AsyncMock,
 ) -> None:
     """A binary that cannot be run fails the start and leaves no directory."""
     create_subprocess.side_effect = FileNotFoundError("no such file")
-    with pytest.raises(LotseServerError, match="cannot run /usr/bin/lotse"):
+    with pytest.raises(RockoServerError, match="cannot run /usr/bin/rocko"):
         await server.async_start()
     assert not spawn_dir.exists()
 
 
 async def test_start_exits_before_ready(
     hass: HomeAssistant,
-    server: LotseServer,
+    server: RockoServer,
     spawn_dir: Path,
     process: FakeProcess,
     mock_clients: MockClients,
@@ -347,7 +347,7 @@ async def test_start_exits_before_ready(
     """A daemon that exits before it is ready fails the start."""
     process.exit(2)
     with pytest.raises(
-        LotseServerError, match="exited with code 2 before it was ready"
+        RockoServerError, match="exited with code 2 before it was ready"
     ):
         await server.async_start()
     assert not mock_clients.clients
@@ -357,7 +357,7 @@ async def test_start_exits_before_ready(
 
 async def test_start_not_ready_in_time(
     hass: HomeAssistant,
-    server: LotseServer,
+    server: RockoServer,
     spawn_dir: Path,
     process: FakeProcess,
     mock_clients: MockClients,
@@ -367,7 +367,7 @@ async def test_start_not_ready_in_time(
     with (
         patch(f"{SERVER}.READY_TIMEOUT", 0.05),
         patch(f"{SERVER}.READY_RETRY", 0.001),
-        pytest.raises(LotseServerError, match="not ready within"),
+        pytest.raises(RockoServerError, match="not ready within"),
     ):
         await server.async_start()
     process.terminate.assert_called_once()
@@ -376,7 +376,7 @@ async def test_start_not_ready_in_time(
 
 async def test_start_api_version(
     hass: HomeAssistant,
-    server: LotseServer,
+    server: RockoServer,
     spawn_dir: Path,
     process: FakeProcess,
     mock_clients: MockClients,
@@ -396,12 +396,12 @@ def _line(record: Any) -> bytes:
 
 async def test_log_relay(
     hass: HomeAssistant,
-    server: LotseServer,
+    server: RockoServer,
     process: FakeProcess,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     """The daemon's JSON lines are logged at their own level, anything else at debug."""
-    caplog.set_level(logging.DEBUG, logger="custom_components.lotse.daemon")
+    caplog.set_level(logging.DEBUG, logger="custom_components.rocko.daemon")
     await server.async_start()
     lines = [
         _line(
@@ -432,7 +432,7 @@ async def test_log_relay(
     records = [
         (record.levelno, record.getMessage())
         for record in caplog.records
-        if record.name == "custom_components.lotse.daemon"
+        if record.name == "custom_components.rocko.daemon"
     ]
     assert records[:5] == [
         (

@@ -1,4 +1,4 @@
-"""Fixtures for the lotse integration tests."""
+"""Fixtures for the rocko integration tests."""
 
 import asyncio
 from collections.abc import AsyncGenerator, Callable, Generator
@@ -30,7 +30,7 @@ from pytest_homeassistant_custom_component.common import (
     setup_test_component_platform,
 )
 
-from custom_components.lotse.const import (
+from custom_components.rocko.const import (
     CONF_BINARY,
     CONF_MODE,
     CONF_SOCKET,
@@ -45,9 +45,9 @@ from homeassistant.core import HomeAssistant
 
 from . import MockCamera
 
-SOCKET_PATH = "/run/lotse/lotse.sock"
-SPAWN_SOCKET_PATH = "/run/lotse-spawn/lotse.sock"
-BINARY_PATH = "/usr/bin/lotse"
+SOCKET_PATH = "/run/rocko/rocko.sock"
+SPAWN_SOCKET_PATH = "/run/rocko-spawn/rocko.sock"
+BINARY_PATH = "/usr/bin/rocko"
 
 HELLO = Hello.from_dict(
     {
@@ -62,7 +62,7 @@ INFO = InfoResult.from_dict(
     {
         "version": "0.1.0",
         "build": {"target": "x86_64-unknown-linux-musl", "rustc": "1.98.0"},
-        # A build without the HTTP source: lotse's default build has it too.
+        # A build without the HTTP source: rocko's default build has it too.
         "protocols": ["rtsp", "rtsps", "webrtc"],
         "outputs": ["webrtc"],
         "features": ["session_adopt", "turn"],
@@ -211,10 +211,10 @@ def mock_clients() -> Generator[MockClients]:
     """Patch `LotseClient` wherever the integration creates one."""
     clients = MockClients()
     with (
-        patch("custom_components.lotse.LotseClient", side_effect=clients),
-        patch("custom_components.lotse.connection.LotseClient", side_effect=clients),
-        patch("custom_components.lotse.server.LotseClient", side_effect=clients),
-        patch("custom_components.lotse.config_flow.LotseClient", side_effect=clients),
+        patch("custom_components.rocko.LotseClient", side_effect=clients),
+        patch("custom_components.rocko.connection.LotseClient", side_effect=clients),
+        patch("custom_components.rocko.server.LotseClient", side_effect=clients),
+        patch("custom_components.rocko.config_flow.LotseClient", side_effect=clients),
     ):
         yield clients
 
@@ -222,7 +222,7 @@ def mock_clients() -> Generator[MockClients]:
 @pytest.fixture
 async def mock_server() -> AsyncGenerator[MagicMock]:
     """Patch the daemon Home Assistant runs."""
-    with patch("custom_components.lotse.LotseServer", autospec=True) as server_class:
+    with patch("custom_components.rocko.RockoServer", autospec=True) as server_class:
         server = server_class.return_value
         loop = asyncio.get_running_loop()
         exited: list[asyncio.Future[int]] = [loop.create_future()]
@@ -248,7 +248,7 @@ async def mock_server() -> AsyncGenerator[MagicMock]:
 def mock_setup_entry() -> Generator[AsyncMock]:
     """Patch setting up an entry."""
     with patch(
-        "custom_components.lotse.async_setup_entry", return_value=True
+        "custom_components.rocko.async_setup_entry", return_value=True
     ) as setup_entry:
         yield setup_entry
 
@@ -258,7 +258,7 @@ def mock_config_entry() -> MockConfigEntry:
     """An entry that connects to a running daemon."""
     return MockConfigEntry(
         domain=DOMAIN,
-        title="lotse",
+        title="rocko",
         data={CONF_MODE: MODE_CONNECT, CONF_SOCKET: SOCKET_PATH},
     )
 
@@ -268,7 +268,7 @@ def mock_spawn_entry() -> MockConfigEntry:
     """An entry that runs the daemon."""
     return MockConfigEntry(
         domain=DOMAIN,
-        title="lotse",
+        title="rocko",
         data={CONF_MODE: MODE_SPAWN, CONF_BINARY: BINARY_PATH},
     )
 
@@ -318,7 +318,7 @@ async def async_setup_camera(hass: HomeAssistant, camera: MockCamera) -> None:
 
 @pytest.fixture
 async def camera(hass: HomeAssistant, init_integration: MockConfigEntry) -> MockCamera:
-    """A camera of another integration, set up after lotse."""
+    """A camera of another integration, set up after rocko."""
     camera = MockCamera("camera_unique_id")
     await async_setup_camera(hass, camera)
     return camera

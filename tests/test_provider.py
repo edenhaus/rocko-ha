@@ -1,4 +1,4 @@
-"""Tests for lotse as the cameras' WebRTC provider."""
+"""Tests for rocko as the cameras' WebRTC provider."""
 
 import asyncio
 from datetime import timedelta
@@ -35,15 +35,15 @@ from pytest_homeassistant_custom_component.common import (
 from pytest_homeassistant_custom_component.typing import WebSocketGenerator
 from webrtc_models import RTCConfiguration, RTCIceCandidateInit, RTCIceServer
 
-from custom_components.lotse.const import (
+from custom_components.rocko.const import (
     ERROR_NO_STREAM_SOURCE,
     ERROR_UNAVAILABLE,
     ERROR_UNSUPPORTED_STREAM_SOURCE,
 )
-from custom_components.lotse.provider import (
+from custom_components.rocko.provider import (
     MAX_PENDING_CANDIDATES,
     MAX_STREAM_ID,
-    LotseWebRTCProvider,
+    RockoWebRTCProvider,
     ice_servers_for,
     source_for,
     stream_id_for,
@@ -62,13 +62,13 @@ from . import STREAM_SOURCE, MockCamera, run_tasks
 from .conftest import MockClients, async_setup_camera
 
 OFFER_SDP = "v=0\r\no=- 1 1 IN IP4 127.0.0.1\r\ns=-\r\n"
-ANSWER_SDP = "v=0\r\no=- 2 2 IN IP4 192.0.2.1\r\ns=lotse\r\n"
+ANSWER_SDP = "v=0\r\no=- 2 2 IN IP4 192.0.2.1\r\ns=rocko\r\n"
 CANDIDATE = "candidate:1 1 udp 2130706431 192.0.2.1 18555 typ host"
 SESSION_ID = "01J8ZKSESSION"
 STREAM_ID = "camera.front_door"
 
 
-def _provider(entry: MockConfigEntry) -> LotseWebRTCProvider:
+def _provider(entry: MockConfigEntry) -> RockoWebRTCProvider:
     return entry.runtime_data.provider
 
 
@@ -101,9 +101,9 @@ def _drop(client: MagicMock) -> None:
 async def test_provider_registered(
     hass: HomeAssistant, init_integration: MockConfigEntry, camera: MockCamera
 ) -> None:
-    """The camera is served by lotse over WebRTC."""
+    """The camera is served by rocko over WebRTC."""
     assert camera.webrtc_provider is _provider(init_integration)
-    assert camera.webrtc_provider.domain == "lotse"
+    assert camera.webrtc_provider.domain == "rocko"
     assert StreamType.WEB_RTC in camera.camera_capabilities.frontend_stream_types
 
 
@@ -112,7 +112,7 @@ async def test_provider_registered(
     [
         ("rtsp://192.0.2.10/h264", True),
         ("RTSPS://192.0.2.10/h264", True),
-        # A protocol lotse reads from a URL, but this build did not register.
+        # A protocol rocko reads from a URL, but this build did not register.
         ("http://192.0.2.10/stream.m3u8", False),
         # A protocol this build registered, but whose signaling the client
         # relays: it takes no URL.
@@ -148,7 +148,7 @@ def test_source_for(
     stream_source: str,
     expected: RtspSource | RtspsSource | HttpSource | HttpsSource | None,
 ) -> None:
-    """A stream source URL becomes the lotse source of its scheme."""
+    """A stream source URL becomes the rocko source of its scheme."""
     assert source_for(stream_source) == expected
 
 
@@ -312,7 +312,7 @@ async def test_register_preloaded_camera(
     camera: MockCamera,
     mock_clients: MockClients,
 ) -> None:
-    """A camera whose stream is preloaded is put when lotse serves it."""
+    """A camera whose stream is preloaded is put when rocko serves it."""
     provider = _provider(init_integration)
     client = mock_clients.last
     await provider.async_register_camera(camera)
@@ -359,7 +359,7 @@ async def test_put_failures_logged(
     camera.set_stream_source("webrtc://192.0.2.10/stream")
     await provider.async_on_camera_prefs_update(camera)
     assert (
-        f"Camera of stream {STREAM_ID} has a stream source lotse does not read"
+        f"Camera of stream {STREAM_ID} has a stream source rocko does not read"
         in caplog.text
     )
 
@@ -371,7 +371,7 @@ async def test_unregister_camera(
     mock_clients: MockClients,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    """A camera lotse no longer serves has its stream deleted."""
+    """A camera rocko no longer serves has its stream deleted."""
     provider = _provider(init_integration)
     client = mock_clients.last
     await _offer(camera, mock_clients)
@@ -449,13 +449,13 @@ async def test_offer_unsupported_stream_source(
     camera: MockCamera,
     mock_clients: MockClients,
 ) -> None:
-    """A camera whose stream source lotse does not read fails the offer."""
+    """A camera whose stream source rocko does not read fails the offer."""
     camera.set_stream_source("webrtc://192.0.2.10/stream")
     send_message, _ = await _offer(camera, mock_clients)
     send_message.assert_called_once_with(
         WebRTCError(
             ERROR_UNSUPPORTED_STREAM_SOURCE,
-            "lotse does not read the camera's stream source",
+            "rocko does not read the camera's stream source",
         )
     )
     mock_clients.last.stream.put.assert_not_awaited()
@@ -475,7 +475,7 @@ async def test_offer_while_disconnected(
 
     send_message, _ = await _offer(camera, mock_clients)
     send_message.assert_called_once_with(
-        WebRTCError(ERROR_UNAVAILABLE, "lotse is not connected")
+        WebRTCError(ERROR_UNAVAILABLE, "rocko is not connected")
     )
     assert _provider(init_integration).session_count == 0
 
@@ -938,7 +938,7 @@ def test_stream_id(entity_id: str, expected: str) -> None:
 
 @pytest.mark.parametrize("entity_id", ["camera." + "a" * 200, "camera.tür"])
 def test_stream_id_shortened(entity_id: str) -> None:
-    """An entity id lotse does not take as a stream id is shortened or replaced."""
+    """An entity id rocko does not take as a stream id is shortened or replaced."""
     stream_id = stream_id_for(entity_id)
     assert len(stream_id) <= MAX_STREAM_ID
     assert stream_id.startswith("camera.")

@@ -1,4 +1,4 @@
-"""Tests for the lotse config flow."""
+"""Tests for the rocko config flow."""
 
 from collections.abc import Generator
 from pathlib import Path
@@ -9,7 +9,7 @@ from lotse_client import ApiVersionError, CannotConnectError
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.lotse.const import (
+from custom_components.rocko.const import (
     CONF_BINARY,
     CONF_MODE,
     CONF_SOCKET,
@@ -18,7 +18,7 @@ from custom_components.lotse.const import (
     MODE_CONNECT,
     MODE_SPAWN,
 )
-from custom_components.lotse.server import LotseServerError
+from custom_components.rocko.server import RockoServerError
 from homeassistant.config_entries import SOURCE_USER
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
@@ -31,7 +31,7 @@ pytestmark = pytest.mark.usefixtures("mock_setup_entry")
 @pytest.fixture
 def binary(tmp_path: Path) -> str:
     """An executable file."""
-    path = tmp_path / "lotse"
+    path = tmp_path / "rocko"
     path.write_text("#!/bin/sh\n")
     path.chmod(stat.S_IRWXU)
     return str(path)
@@ -39,17 +39,17 @@ def binary(tmp_path: Path) -> str:
 
 @pytest.fixture
 def mock_version() -> Generator[AsyncMock]:
-    """Patch running `lotse --version`."""
+    """Patch running `rocko --version`."""
     with patch(
-        "custom_components.lotse.config_flow.async_get_version", return_value="0.1.0"
+        "custom_components.rocko.config_flow.async_get_version", return_value="0.1.0"
     ) as get_version:
         yield get_version
 
 
 @pytest.fixture
 def mock_which(binary: str) -> Generator[None]:
-    """Patch finding lotse on the PATH."""
-    with patch("custom_components.lotse.config_flow.shutil.which", return_value=binary):
+    """Patch finding rocko on the PATH."""
+    with patch("custom_components.rocko.config_flow.shutil.which", return_value=binary):
         yield
 
 
@@ -63,7 +63,7 @@ def _suggested(result: dict, key: str) -> str | None:
 
 @pytest.mark.usefixtures("mock_which")
 async def test_spawn(hass: HomeAssistant, binary: str, mock_version: AsyncMock) -> None:
-    """Choosing to run lotse checks the binary and creates the entry."""
+    """Choosing to run rocko checks the binary and creates the entry."""
     result = await hass.config_entries.flow.async_init(
         DOMAIN, context={"source": SOURCE_USER}
     )
@@ -81,17 +81,17 @@ async def test_spawn(hass: HomeAssistant, binary: str, mock_version: AsyncMock) 
         result["flow_id"], {CONF_BINARY: binary}
     )
     assert result["type"] is FlowResultType.CREATE_ENTRY
-    assert result["title"] == "lotse"
+    assert result["title"] == "rocko"
     assert result["data"] == {CONF_MODE: MODE_SPAWN, CONF_BINARY: binary}
     mock_version.assert_awaited_once_with(binary)
 
 
 async def test_spawn_not_on_path(hass: HomeAssistant) -> None:
-    """Without lotse on the PATH nothing is suggested."""
+    """Without rocko on the PATH nothing is suggested."""
     result = await hass.config_entries.flow.async_init(
         DOMAIN, context={"source": SOURCE_USER}
     )
-    with patch("custom_components.lotse.config_flow.shutil.which", return_value=None):
+    with patch("custom_components.rocko.config_flow.shutil.which", return_value=None):
         result = await hass.config_entries.flow.async_configure(
             result["flow_id"], {"next_step_id": MODE_SPAWN}
         )
@@ -126,7 +126,7 @@ async def test_spawn_errors(
     )
     assert result["errors"] == {CONF_BINARY: "binary_not_executable"}
 
-    mock_version.side_effect = LotseServerError("not lotse")
+    mock_version.side_effect = RockoServerError("not rocko")
     result = await hass.config_entries.flow.async_configure(
         result["flow_id"], {CONF_BINARY: binary}
     )
@@ -141,7 +141,7 @@ async def test_spawn_errors(
 
 
 async def test_connect(hass: HomeAssistant, mock_clients: MockClients) -> None:
-    """Choosing a running lotse checks its socket and creates the entry."""
+    """Choosing a running rocko checks its socket and creates the entry."""
     result = await hass.config_entries.flow.async_init(
         DOMAIN, context={"source": SOURCE_USER}
     )
@@ -156,7 +156,7 @@ async def test_connect(hass: HomeAssistant, mock_clients: MockClients) -> None:
         result["flow_id"], {CONF_SOCKET: SOCKET_PATH}
     )
     assert result["type"] is FlowResultType.CREATE_ENTRY
-    assert result["title"] == "lotse"
+    assert result["title"] == "rocko"
     assert result["data"] == {CONF_MODE: MODE_CONNECT, CONF_SOCKET: SOCKET_PATH}
     assert mock_clients.paths == [SOCKET_PATH]
     mock_clients.last.close.assert_awaited_once()
@@ -176,7 +176,7 @@ async def test_connect_errors(
     error: BaseException,
     reason: str,
 ) -> None:
-    """A socket that does not answer as lotse shows an error, and the flow recovers."""
+    """A socket that does not answer as rocko shows an error, and the flow recovers."""
     result = await hass.config_entries.flow.async_init(
         DOMAIN, context={"source": SOURCE_USER}
     )
@@ -224,13 +224,13 @@ async def test_reconfigure_connect(
     assert _suggested(result, CONF_SOCKET) == SOCKET_PATH
 
     result = await hass.config_entries.flow.async_configure(
-        result["flow_id"], {CONF_SOCKET: "/run/other/lotse.sock"}
+        result["flow_id"], {CONF_SOCKET: "/run/other/rocko.sock"}
     )
     assert result["type"] is FlowResultType.ABORT
     assert result["reason"] == "reconfigure_successful"
     assert mock_config_entry.data == {
         CONF_MODE: MODE_CONNECT,
-        CONF_SOCKET: "/run/other/lotse.sock",
+        CONF_SOCKET: "/run/other/rocko.sock",
     }
 
 
@@ -240,10 +240,10 @@ async def test_reconfigure_to_spawn(
     mock_config_entry: MockConfigEntry,
     binary: str,
 ) -> None:
-    """Reconfiguring can switch from connecting to running lotse."""
+    """Reconfiguring can switch from connecting to running rocko."""
     mock_config_entry.add_to_hass(hass)
     result = await mock_config_entry.start_reconfigure_flow(hass)
-    with patch("custom_components.lotse.config_flow.shutil.which", return_value=None):
+    with patch("custom_components.rocko.config_flow.shutil.which", return_value=None):
         result = await hass.config_entries.flow.async_configure(
             result["flow_id"], {"next_step_id": MODE_SPAWN}
         )

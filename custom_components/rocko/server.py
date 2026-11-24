@@ -1,7 +1,7 @@
-"""Run the lotse daemon as a child process of Home Assistant.
+"""Run the rocko daemon as a child process of Home Assistant.
 
 Each spawn gets a fresh 0700 directory from `mkdtemp`, and the daemon binds
-its control socket inside it (`lotse serve --socket <dir>/lotse.sock`). The
+its control socket inside it (`rocko serve --socket <dir>/rocko.sock`). The
 daemon counts as ready once a control connection is greeted with `hello`.
 It writes one JSON object per line to stderr, which is re-logged here at each
 line's level. Stopping it is SIGTERM, then SIGKILL after a grace period; the
@@ -36,7 +36,7 @@ READY_RETRY: Final = 0.1
 TERMINATE_TIMEOUT: Final = 5
 """Seconds between SIGTERM and SIGKILL."""
 VERSION_TIMEOUT: Final = 10
-"""Seconds `lotse --version` may take."""
+"""Seconds `rocko --version` may take."""
 LINE_LIMIT: Final = 64 * 1024
 """The longest stderr line read, in bytes; a longer one is dropped."""
 TEXT_LIMIT: Final = 2048
@@ -54,12 +54,12 @@ _NOT_FIELDS: Final = frozenset({"timestamp", "level", "message", "spans"})
 """The keys of a JSON line that are not its event's own fields."""
 
 
-class LotseServerError(HomeAssistantError):
-    """The daemon could not be started, or the binary is not lotse."""
+class RockoServerError(HomeAssistantError):
+    """The daemon could not be started, or the binary is not rocko."""
 
 
 async def async_get_version(binary: str) -> str:
-    """Run `<binary> --version` and return the version a lotse binary prints."""
+    """Run `<binary> --version` and return the version a rocko binary prints."""
     try:
         process = await asyncio.create_subprocess_exec(
             binary,
@@ -69,7 +69,7 @@ async def async_get_version(binary: str) -> str:
             stderr=asyncio.subprocess.DEVNULL,
         )
     except OSError as err:
-        raise LotseServerError(f"cannot run {binary}: {err}") from err
+        raise RockoServerError(f"cannot run {binary}: {err}") from err
     try:
         async with asyncio.timeout(VERSION_TIMEOUT):
             stdout, _ = await process.communicate()
@@ -77,10 +77,10 @@ async def async_get_version(binary: str) -> str:
         with suppress(ProcessLookupError):
             process.kill()
         await process.wait()
-        raise LotseServerError(f"{binary} --version did not finish") from err
+        raise RockoServerError(f"{binary} --version did not finish") from err
     name, _, version = stdout.decode(errors="replace").strip().partition(" ")
     if process.returncode != 0 or name != BINARY_NAME or not version:
-        raise LotseServerError(f"{binary} is not a lotse binary")
+        raise RockoServerError(f"{binary} is not a rocko binary")
     return version
 
 
@@ -125,8 +125,8 @@ def _relog(line: bytes) -> None:
     _DAEMON_LOGGER.log(level, "%s", text[:TEXT_LIMIT])
 
 
-class LotseServer:
-    """The lotse daemon, spawned and stopped by Home Assistant."""
+class RockoServer:
+    """The rocko daemon, spawned and stopped by Home Assistant."""
 
     def __init__(self, hass: HomeAssistant, binary: str) -> None:
         """Prepare a server; nothing runs until `async_start`."""
@@ -178,9 +178,9 @@ class LotseServer:
             )
         except OSError as err:
             await self._async_remove_directory()
-            raise LotseServerError(f"cannot run {self._binary}: {err}") from err
+            raise RockoServerError(f"cannot run {self._binary}: {err}") from err
         self._process = process
-        _LOGGER.info("Started lotse, pid %s", process.pid)
+        _LOGGER.info("Started rocko, pid %s", process.pid)
         if process.stderr is not None:
             self._log_task = self._hass.async_create_background_task(
                 self._async_relay_log(process.stderr), f"{DOMAIN} log relay"
@@ -203,8 +203,8 @@ class LotseServer:
             async with asyncio.timeout(READY_TIMEOUT):
                 while True:
                     if process.returncode is not None:
-                        raise LotseServerError(
-                            f"lotse exited with code {process.returncode} before it was ready"
+                        raise RockoServerError(
+                            f"rocko exited with code {process.returncode} before it was ready"
                         )
                     client = LotseClient(socket)
                     try:
@@ -212,20 +212,20 @@ class LotseServer:
                     except LotseError as err:
                         if isinstance(err, ApiVersionError):
                             raise
-                        _LOGGER.debug("lotse is not ready yet: %s", err)
+                        _LOGGER.debug("rocko is not ready yet: %s", err)
                         await asyncio.sleep(READY_RETRY)
                         continue
                     await client.close()
                     _LOGGER.info(
-                        "lotse %s is ready, pid %s, API %s",
+                        "rocko %s is ready, pid %s, API %s",
                         hello.version,
                         process.pid,
                         hello.api,
                     )
                     return
         except TimeoutError as err:
-            raise LotseServerError(
-                f"lotse was not ready within {READY_TIMEOUT} s"
+            raise RockoServerError(
+                f"rocko was not ready within {READY_TIMEOUT} s"
             ) from err
 
     async def _async_relay_log(self, stream: asyncio.StreamReader) -> None:
@@ -246,10 +246,10 @@ class LotseServer:
         """Wait for the process to end and log how it ended."""
         code = await process.wait()
         if self._stopping:
-            _LOGGER.info("lotse (pid %s) stopped with code %s", process.pid, code)
+            _LOGGER.info("rocko (pid %s) stopped with code %s", process.pid, code)
         else:
             _LOGGER.warning(
-                "lotse (pid %s) exited unexpectedly with code %s", process.pid, code
+                "rocko (pid %s) exited unexpectedly with code %s", process.pid, code
             )
         return code
 
@@ -264,7 +264,7 @@ class LotseServer:
         self._stopping = True
         process, self._process = self._process, None
         if process is not None and process.returncode is None:
-            _LOGGER.debug("Stopping lotse, pid %s", process.pid)
+            _LOGGER.debug("Stopping rocko, pid %s", process.pid)
             with suppress(ProcessLookupError):
                 process.terminate()
             try:
@@ -272,7 +272,7 @@ class LotseServer:
                     await process.wait()
             except TimeoutError:
                 _LOGGER.warning(
-                    "lotse (pid %s) did not stop within %s s after SIGTERM, killing it",
+                    "rocko (pid %s) did not stop within %s s after SIGTERM, killing it",
                     process.pid,
                     TERMINATE_TIMEOUT,
                 )

@@ -4,7 +4,7 @@
     'connected': True,
     'entry_data': dict({
       'mode': 'connect',
-      'socket': '/run/lotse/lotse.sock',
+      'socket': '/run/rocko/rocko.sock',
     }),
     'info': dict({
       'build': dict({

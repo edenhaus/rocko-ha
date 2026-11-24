@@ -1,4 +1,4 @@
-"""Tests for setting up and unloading the lotse integration."""
+"""Tests for setting up and unloading the rocko integration."""
 
 from unittest.mock import MagicMock, Mock
 
@@ -6,9 +6,9 @@ from lotse_client import ApiVersionError, CannotConnectError, ConnectionClosedEr
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.lotse import LotseData
-from custom_components.lotse.provider import DATA_HANDOVER, LotseWebRTCProvider
-from custom_components.lotse.server import LotseServerError
+from custom_components.rocko import RockoData
+from custom_components.rocko.provider import DATA_HANDOVER, RockoWebRTCProvider
+from custom_components.rocko.server import RockoServerError
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.const import EVENT_HOMEASSISTANT_STOP
 from homeassistant.core import HomeAssistant
@@ -27,8 +27,8 @@ async def test_setup_and_unload(
     client = mock_clients.last
     client.connect.assert_awaited_once()
     client.info.assert_awaited_once()
-    assert isinstance(entry.runtime_data, LotseData)
-    assert isinstance(entry.runtime_data.provider, LotseWebRTCProvider)
+    assert isinstance(entry.runtime_data, RockoData)
+    assert isinstance(entry.runtime_data.provider, RockoWebRTCProvider)
     connection = entry.runtime_data.connection
     assert connection.client is client
     assert connection.server is None
@@ -47,7 +47,7 @@ async def test_setup_cannot_connect(
     mock_config_entry.add_to_hass(hass)
     assert not await hass.config_entries.async_setup(mock_config_entry.entry_id)
     assert mock_config_entry.state is ConfigEntryState.SETUP_RETRY
-    assert mock_config_entry.reason == "Could not connect to lotse: refused"
+    assert mock_config_entry.reason == "Could not connect to rocko: refused"
 
 
 async def test_setup_info_fails(
@@ -74,7 +74,7 @@ async def test_setup_api_version(
     assert not await hass.config_entries.async_setup(mock_config_entry.entry_id)
     assert mock_config_entry.state is ConfigEntryState.SETUP_ERROR
     assert mock_config_entry.reason == (
-        "lotse speaks control API version 0.2.0, but this integration needs a "
+        "rocko speaks control API version 0.2.0, but this integration needs a "
         "version compatible with 0.1.0"
     )
 
@@ -115,7 +115,7 @@ async def test_spawn_setup_fails(
     mock_clients: MockClients,
 ) -> None:
     """A daemon that does not start makes setup retry, and is stopped."""
-    mock_server.async_ensure_running.side_effect = LotseServerError("exited")
+    mock_server.async_ensure_running.side_effect = RockoServerError("exited")
     mock_spawn_entry.add_to_hass(hass)
     assert not await hass.config_entries.async_setup(mock_spawn_entry.entry_id)
     assert mock_spawn_entry.state is ConfigEntryState.SETUP_RETRY
@@ -162,7 +162,7 @@ async def test_remove_cannot_connect(
     """A daemon that cannot be reached on removal is only logged."""
     mock_clients.connect_errors = [CannotConnectError("refused")]
     assert await hass.config_entries.async_remove(init_integration.entry_id)
-    assert "Could not delete the cameras' streams from lotse: refused" in caplog.text
+    assert "Could not delete the cameras' streams from rocko: refused" in caplog.text
 
 
 async def test_remove_spawned(

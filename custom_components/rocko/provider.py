@@ -1,6 +1,6 @@
-"""lotse as the cameras' WebRTC provider.
+"""rocko as the cameras' WebRTC provider.
 
-Each camera is one lotse stream, whose id is the camera's entity id. Before
+Each camera is one rocko stream, whose id is the camera's entity id. Before
 an offer the stream is put again (`stream/put` is idempotent) with the
 camera's current source and preferences. Each browser session is one
 `webrtc/offer` subscription under Home Assistant's own session id; its
@@ -22,7 +22,7 @@ from lotse_client.models import (
     HttpSource,
     HttpsSource,
     IceServer,
-    Orientation as LotseOrientation,
+    Orientation as RockoOrientation,
     RtspSource,
     RtspsSource,
     SessionEvent,
@@ -49,7 +49,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.util.hass_dict import HassKey
 
-from .connection import LotseConnection
+from .connection import RockoConnection
 from .const import (
     DOMAIN,
     ERROR_NO_STREAM_SOURCE,
@@ -59,7 +59,7 @@ from .const import (
 
 _LOGGER = logging.getLogger(__name__)
 
-ORIENTATIONS: Final[dict[Orientation, LotseOrientation]] = {
+ORIENTATIONS: Final[dict[Orientation, RockoOrientation]] = {
     Orientation.NO_TRANSFORM: "no_transform",
     Orientation.MIRROR: "mirror",
     Orientation.ROTATE_180: "rotate_180",
@@ -70,13 +70,13 @@ ORIENTATIONS: Final[dict[Orientation, LotseOrientation]] = {
     Orientation.ROTATE_RIGHT: "rotate_right",
 }
 """Home Assistant's orientation preference, 1 to 8 as the EXIF orientation tag
-numbers them, and the same transform in lotse's `stream/put`."""
+numbers them, and the same transform in rocko's `stream/put`."""
 
 NORMAL_CLOSE_CODES: Final = frozenset({"peer_closed", "session_closed"})
 """The `closed` codes of a session that ended without a fault."""
 
 MAX_STREAM_ID: Final = 128
-"""The longest stream id lotse accepts."""
+"""The longest stream id rocko accepts."""
 _STREAM_ID: Final = re.compile(r"[A-Za-z0-9._-]+")
 MAX_PENDING_CANDIDATES: Final = 32
 """Browser candidates kept for a session that has no subscription yet."""
@@ -90,8 +90,8 @@ URL_SOURCES: Final[
     "http": HttpSource,
     "https": HttpsSource,
 }
-"""lotse's source for each URL scheme it reads, which is also the source's
-protocol in `info`. lotse's other protocols, `webrtc` among them, take no URL:
+"""rocko's source for each URL scheme it reads, which is also the source's
+protocol in `info`. rocko's other protocols, `webrtc` among them, take no URL:
 the client relays their signaling."""
 
 
@@ -100,7 +100,7 @@ class _NoStreamSourceError(Exception):
 
 
 class _UnsupportedStreamSourceError(Exception):
-    """The camera's stream source has a scheme lotse does not read."""
+    """The camera's stream source has a scheme rocko does not read."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -135,7 +135,7 @@ class _Session:
 
 
 def stream_id_for(entity_id: str) -> str:
-    """The lotse stream id of a camera: its entity id, shortened if too long."""
+    """The rocko stream id of a camera: its entity id, shortened if too long."""
     if len(entity_id) <= MAX_STREAM_ID and _STREAM_ID.fullmatch(entity_id):
         return entity_id
     digest = hashlib.sha256(entity_id.encode()).hexdigest()[:16]
@@ -146,10 +146,10 @@ def stream_id_for(entity_id: str) -> str:
 def source_for(
     stream_source: str,
 ) -> RtspSource | RtspsSource | HttpSource | HttpsSource | None:
-    """The lotse source that reads a stream source URL, chosen by its scheme.
+    """The rocko source that reads a stream source URL, chosen by its scheme.
 
-    `None` if lotse reads no URL of that scheme. The source's options keep
-    lotse's defaults.
+    `None` if rocko reads no URL of that scheme. The source's options keep
+    rocko's defaults.
     """
     if (source := URL_SOURCES.get(urlsplit(stream_source).scheme)) is None:
         return None
@@ -157,7 +157,7 @@ def source_for(
 
 
 def ice_servers_for(camera: Camera) -> list[IceServer]:
-    """The ICE servers the camera's browser got, as lotse takes them."""
+    """The ICE servers the camera's browser got, as rocko takes them."""
     configuration = camera.async_get_webrtc_client_configuration().configuration
     return [
         IceServer(
@@ -169,11 +169,11 @@ def ice_servers_for(camera: Camera) -> list[IceServer]:
     ]
 
 
-class LotseWebRTCProvider(CameraWebRTCProvider):
-    """Serve the cameras' WebRTC sessions through lotse."""
+class RockoWebRTCProvider(CameraWebRTCProvider):
+    """Serve the cameras' WebRTC sessions through rocko."""
 
     def __init__(
-        self, hass: HomeAssistant, entry: ConfigEntry, connection: LotseConnection
+        self, hass: HomeAssistant, entry: ConfigEntry, connection: RockoConnection
     ) -> None:
         """Initialize the provider."""
         self._hass = hass
@@ -216,7 +216,7 @@ class LotseWebRTCProvider(CameraWebRTCProvider):
         session = _Session(session_id, stream_id, send_message, opening=True)
         self._sessions[session_id] = session
         if (client := self._connection.client) is None:
-            self._async_fail(session, ERROR_UNAVAILABLE, "lotse is not connected")
+            self._async_fail(session, ERROR_UNAVAILABLE, "rocko is not connected")
             return
         try:
             await self._async_put_stream(client, camera)
@@ -235,7 +235,7 @@ class LotseWebRTCProvider(CameraWebRTCProvider):
             self._async_fail(
                 session,
                 ERROR_UNSUPPORTED_STREAM_SOURCE,
-                "lotse does not read the camera's stream source",
+                "rocko does not read the camera's stream source",
             )
             return
         except CommandError as err:
@@ -386,7 +386,7 @@ class LotseWebRTCProvider(CameraWebRTCProvider):
             _LOGGER.debug("Camera of stream %s has no stream source", stream_id)
         except _UnsupportedStreamSourceError:
             _LOGGER.debug(
-                "Camera of stream %s has a stream source lotse does not read",
+                "Camera of stream %s has a stream source rocko does not read",
                 stream_id,
             )
         except LotseError as err:

@@ -1,0 +1,68 @@
+{
+  "config": {
+    "abort": {
+      "reconfigure_successful": "Re-configuration was successful",
+      "single_instance_allowed": "Already configured. Only a single configuration possible."
+    },
+    "error": {
+      "api_version": "This rocko speaks a control API version this integration does not support. Update rocko or the integration so they match.",
+      "binary_not_executable": "The file is not executable.",
+      "binary_not_found": "There is no file at this path.",
+      "cannot_connect": "Failed to connect",
+      "invalid_binary": "The file is not a rocko binary: running it with `--version` did not print a rocko version.",
+      "unknown": "Unexpected error"
+    },
+    "step": {
+      "connect": {
+        "data": {
+          "socket": "Control socket"
+        },
+        "data_description": {
+          "socket": "Path of the control socket of the running rocko, as its `--socket` option names it. Home Assistant must be allowed to connect to it."
+        },
+        "description": "Connect to a rocko that runs outside Home Assistant."
+      },
+      "reconfigure": {
+        "description": "Choose how Home Assistant reaches rocko.",
+        "menu_options": {
+          "connect": "Connect to a running rocko",
+          "spawn": "Run rocko"
+        }
+      },
+      "spawn": {
+        "data": {
+          "binary": "rocko binary"
+        },
+        "data_description": {
+          "binary": "Path of the rocko executable. Home Assistant starts it, restarts it when it fails and stops it on shutdown."
+        },
+        "description": "Let Home Assistant run rocko."
+      },
+      "user": {
+        "description": "rocko is a media daemon that serves your cameras to the browser over WebRTC. Choose how Home Assistant reaches it.",
+        "menu_options": {
+          "connect": "Connect to a running rocko",
+          "spawn": "Run rocko"
+        }
+      }
+    }
+  },
+  "exceptions": {
+    "api_version": {
+      "message": "rocko speaks control API version {daemon}, but this integration needs a version compatible with {client}"
+    },
+    "cannot_connect": {
+      "message": "Could not connect to rocko: {error}"
+    }
+  },
+  "issues": {
+    "sandbox_degraded": {
+      "title": "rocko runs with a weakened sandbox",
+      "description": "rocko reads camera streams from the network, so each of its processes is hardened in layers. The running rocko lacks these layers: {layers}.\n\nStart rocko as root so it can drop its privileges itself, on a kernel with seccomp and Landlock enabled. Home Assistant checks again on every connection to rocko and removes this message once the layers are in place."
+    },
+    "sandbox_off": {
+      "title": "rocko runs without its sandbox",
+      "description": "rocko was started with its sandbox off, so its processes run without the hardening that limits what a compromised camera stream could do.\n\nStart rocko with its sandbox on, the default: without `--sandbox off` or `ROCKO_SANDBOX=off`. Home Assistant checks again on every connection to rocko and removes this message once the sandbox is on."
+    }
+  }
+}

@@ -1,8 +1,8 @@
-"""Constants for the lotse integration."""
+"""Constants for the rocko integration."""
 
 from typing import Final
 
-DOMAIN: Final = "lotse"
+DOMAIN: Final = "rocko"
 
 CONF_MODE: Final = "mode"
 CONF_BINARY: Final = "binary"
@@ -13,9 +13,9 @@ MODE_SPAWN: Final = "spawn"
 MODE_CONNECT: Final = "connect"
 """Home Assistant connects to a daemon at the control socket in `CONF_SOCKET`."""
 
-BINARY_NAME: Final = "lotse"
-DEFAULT_SOCKET: Final = "/run/lotse/lotse.sock"
-SOCKET_NAME: Final = "lotse.sock"
+BINARY_NAME: Final = "rocko"
+DEFAULT_SOCKET: Final = "/run/rocko/rocko.sock"
+SOCKET_NAME: Final = "rocko.sock"
 
 PING_INTERVAL: Final = 10
 """Seconds between two pings on the control connection."""
@@ -24,9 +24,9 @@ PING_TIMEOUT: Final = 5
 RECONNECT_MAX_DELAY: Final = 60
 """The longest wait, in seconds, between two reconnect attempts."""
 
-ERROR_UNAVAILABLE: Final = "lotse_unavailable"
+ERROR_UNAVAILABLE: Final = "rocko_unavailable"
 """The code of the WebRTC error sent while the daemon cannot be reached."""
 ERROR_NO_STREAM_SOURCE: Final = "no_stream_source"
 """The code of the WebRTC error sent for a camera without a stream source."""
 ERROR_UNSUPPORTED_STREAM_SOURCE: Final = "unsupported_stream_source"
-"""The code of the WebRTC error sent for a stream source lotse does not read."""
+"""The code of the WebRTC error sent for a stream source rocko does not read."""

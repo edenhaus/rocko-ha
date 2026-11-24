@@ -1,11 +1,11 @@
-# lotse-ha: the Home Assistant integration that uses the lotse media daemon as
+# rocko-ha: the Home Assistant integration that uses the rocko media daemon as
 # the cameras' WebRTC provider. Not a package: Home Assistant loads
-# custom_components/lotse, and uv only manages the development environment.
+# custom_components/rocko, and uv only manages the development environment.
 
 [project]
-name = "lotse-ha"
+name = "rocko-ha"
 version = "0.0.0"
-description = "Home Assistant integration that uses the lotse media daemon as the cameras' WebRTC provider"
+description = "Home Assistant integration that uses the rocko media daemon as the cameras' WebRTC provider"
 readme = "README.md"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
@@ -29,7 +29,7 @@ dev = [
 package = false
 
 [tool.uv.sources]
-lotse-client = { git = "https://github.com/edenhaus/lotse-clients", rev = "3104f6fcd5e902740f6eac0d0279e4c6e229650f", subdirectory = "python" }
+lotse-client = { git = "https://github.com/edenhaus/rocko-clients", rev = "3104f6fcd5e902740f6eac0d0279e4c6e229650f", subdirectory = "python" }
 
 # The ruff rules are Home Assistant core's (its pyproject.toml), so the
 # integration can move into core unchanged.
@@ -253,10 +253,10 @@ testpaths = ["tests"]
 pythonpath = ["."]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
-addopts = "--cov=custom_components.lotse --cov-report=term-missing --snapshot-dirname=snapshots"
+addopts = "--cov=custom_components.rocko --cov-report=term-missing --snapshot-dirname=snapshots"
 
 [tool.coverage.run]
-source = ["custom_components.lotse"]
+source = ["custom_components.rocko"]
 
 [tool.coverage.report]
 fail_under = 100

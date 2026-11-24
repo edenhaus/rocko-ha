@@ -1,6 +1,6 @@
 """Repair issues from the daemon's sandbox report (`info.sandbox`).
 
-lotse hardens each of its processes in layers: it drops root, sets
+rocko hardens each of its processes in layers: it drops root, sets
 `no_new_privs`, and applies a seccomp allowlist and Landlock filesystem rules.
 A sandbox that is off, or a layer the host kernel or the daemon's start did
 not allow, is raised as a repair issue on every connect and withdrawn once
@@ -22,7 +22,7 @@ _LOGGER = logging.getLogger(__name__)
 
 ISSUE_SANDBOX_OFF: Final = "sandbox_off"
 ISSUE_SANDBOX_DEGRADED: Final = "sandbox_degraded"
-LEARN_MORE_URL: Final = "https://github.com/edenhaus/lotse#readme"
+LEARN_MORE_URL: Final = "https://github.com/edenhaus/rocko#readme"
 
 ENFORCED: Final = "enforced"
 """The state of a seccomp or Landlock layer that is applied."""
@@ -48,7 +48,7 @@ def missing_layers(sandbox: SandboxInfo) -> list[str]:
 def async_update_sandbox_issues(hass: HomeAssistant, sandbox: SandboxInfo) -> None:
     """Raise the issues the sandbox report calls for, withdraw the others."""
     if sandbox.mode == SANDBOX_OFF:
-        _LOGGER.warning("lotse runs with its sandbox off")
+        _LOGGER.warning("rocko runs with its sandbox off")
         ir.async_create_issue(
             hass,
             DOMAIN,
@@ -63,7 +63,7 @@ def async_update_sandbox_issues(hass: HomeAssistant, sandbox: SandboxInfo) -> No
     ir.async_delete_issue(hass, DOMAIN, ISSUE_SANDBOX_OFF)
     if missing := missing_layers(sandbox):
         layers = ", ".join(missing)
-        _LOGGER.warning("lotse runs without these sandbox layers: %s", layers)
+        _LOGGER.warning("rocko runs without these sandbox layers: %s", layers)
         ir.async_create_issue(
             hass,
             DOMAIN,

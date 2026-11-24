@@ -1,4 +1,4 @@
-"""Tests for the lotse diagnostics."""
+"""Tests for the rocko diagnostics."""
 
 from unittest.mock import MagicMock
 
@@ -40,7 +40,7 @@ async def test_diagnostics_spawned(
     assert await hass.config_entries.async_setup(mock_spawn_entry.entry_id)
     result = await get_diagnostics_for_config_entry(hass, hass_client, mock_spawn_entry)
     assert result["server_pid"] == 4242
-    assert result["entry_data"] == {"mode": "spawn", "binary": "/usr/bin/lotse"}
+    assert result["entry_data"] == {"mode": "spawn", "binary": "/usr/bin/rocko"}
 
 
 async def test_diagnostics_disconnected(

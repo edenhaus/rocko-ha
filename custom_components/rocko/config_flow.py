@@ -1,8 +1,8 @@
-"""Config flow for the lotse integration.
+"""Config flow for the rocko integration.
 
-lotse is either run by Home Assistant, from a binary the user names, or
+rocko is either run by Home Assistant, from a binary the user names, or
 already running, reached through its control socket. Both are checked
-before an entry is made: the binary must be lotse (`lotse --version`), the
+before an entry is made: the binary must be rocko (`rocko --version`), the
 socket must answer with a `hello` this integration understands.
 """
 
@@ -31,11 +31,11 @@ from .const import (
     MODE_CONNECT,
     MODE_SPAWN,
 )
-from .server import LotseServerError, async_get_version
+from .server import RockoServerError, async_get_version
 
 _LOGGER = logging.getLogger(__name__)
 
-TITLE = "lotse"
+TITLE = "rocko"
 MENU_OPTIONS = [MODE_SPAWN, MODE_CONNECT]
 
 
@@ -54,21 +54,21 @@ async def _async_check_socket(path: str) -> str | None:
     try:
         hello = await client.connect()
     except ApiVersionError as err:
-        _LOGGER.debug("lotse at %s speaks an unsupported API: %s", path, err)
+        _LOGGER.debug("rocko at %s speaks an unsupported API: %s", path, err)
         return "api_version"
     except LotseError as err:
-        _LOGGER.debug("Cannot connect to lotse at %s: %s", path, err)
+        _LOGGER.debug("Cannot connect to rocko at %s: %s", path, err)
         return "cannot_connect"
     except Exception:
-        _LOGGER.exception("Unexpected error connecting to lotse at %s", path)
+        _LOGGER.exception("Unexpected error connecting to rocko at %s", path)
         return "unknown"
-    _LOGGER.debug("lotse %s answers at %s", hello.version, path)
+    _LOGGER.debug("rocko %s answers at %s", hello.version, path)
     await client.close()
     return None
 
 
-class LotseConfigFlow(ConfigFlow, domain=DOMAIN):
-    """Set up lotse: run it, or connect to a running one."""
+class RockoConfigFlow(ConfigFlow, domain=DOMAIN):
+    """Set up rocko: run it, or connect to a running one."""
 
     VERSION = 1
 
@@ -76,19 +76,19 @@ class LotseConfigFlow(ConfigFlow, domain=DOMAIN):
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
-        """Let the user choose how to reach lotse."""
+        """Let the user choose how to reach rocko."""
         return self.async_show_menu(step_id="user", menu_options=MENU_OPTIONS)
 
     async def async_step_reconfigure(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
-        """Let the user choose again how to reach lotse."""
+        """Let the user choose again how to reach rocko."""
         return self.async_show_menu(step_id="reconfigure", menu_options=MENU_OPTIONS)
 
     async def async_step_spawn(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
-        """Run lotse from a binary."""
+        """Run rocko from a binary."""
         errors: dict[str, str] = {}
         if user_input is not None:
             binary = user_input[CONF_BINARY]
@@ -97,11 +97,11 @@ class LotseConfigFlow(ConfigFlow, domain=DOMAIN):
             else:
                 try:
                     version = await async_get_version(binary)
-                except LotseServerError as err:
+                except RockoServerError as err:
                     _LOGGER.debug("%s is not usable: %s", binary, err)
                     errors[CONF_BINARY] = "invalid_binary"
                 else:
-                    _LOGGER.debug("%s is lotse %s", binary, version)
+                    _LOGGER.debug("%s is rocko %s", binary, version)
                     return self._async_finish({CONF_MODE: MODE_SPAWN, **user_input})
         elif (user_input := self._suggested(MODE_SPAWN)) is None and (
             found := await self.hass.async_add_executor_job(shutil.which, BINARY_NAME)
@@ -118,7 +118,7 @@ class LotseConfigFlow(ConfigFlow, domain=DOMAIN):
     async def async_step_connect(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
-        """Connect to a running lotse through its control socket."""
+        """Connect to a running rocko through its control socket."""
         errors: dict[str, str] = {}
         if user_input is not None:
             if error := await _async_check_socket(user_input[CONF_SOCKET]):
