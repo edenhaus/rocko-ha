@@ -1,6 +1,8 @@
 """Tests for making rocko the WebRTC provider that cameras try first."""
 
+import gc
 from typing import override
+import weakref
 
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 from webrtc_models import RTCIceCandidateInit
@@ -151,6 +153,7 @@ async def test_unload_and_reload(
     assert await hass.config_entries.async_unload(init_integration.entry_id)
     await hass.async_block_till_done()
     assert _providers(hass) == [other]
+    assert providers.first is None
     assert camera.webrtc_provider is other
 
     assert await hass.config_entries.async_setup(init_integration.entry_id)
@@ -160,3 +163,31 @@ async def test_unload_and_reload(
     assert hass.data[DATA_WEBRTC_PROVIDERS] is providers
     assert _providers(hass) == [rocko, other]
     assert camera.webrtc_provider is rocko
+
+
+def test_removed_providers_are_not_kept() -> None:
+    """No provider is kept once removed, from the earlier set or from this one."""
+    before = OtherProvider()
+    earlier = {before}
+    first = OtherProvider()
+    providers = FirstProviderSet(first, earlier)
+    assert list(providers) == [before]
+    providers.add(first)
+    later = OtherProvider()
+    providers.add(later)
+    assert list(providers) == [first, before, later]
+    assert len(providers) == 3
+    refs = [weakref.ref(provider) for provider in (before, first, later)]
+
+    # Core's callback of a provider registered before the swap removes it from
+    # the earlier set; those of the providers registered since, from this one.
+    earlier.remove(before)
+    providers.remove(first)
+    providers.remove(later)
+    assert providers.first is None
+    assert not providers
+    assert list(providers) == []
+
+    del before, first, later
+    gc.collect()
+    assert [ref() for ref in refs] == [None, None, None]

@@ -29,46 +29,48 @@ _LOGGER = logging.getLogger(__name__)
 class FirstProviderSet(set[CameraWebRTCProvider]):
     """The registered providers, iterated with `first` before the others.
 
-    It takes over the providers of the set it replaces. Each of them keeps the
-    removal callback core returned when it registered, and that callback removes it
-    from the earlier set, so a provider taken over counts as registered only while
-    the earlier set still has it.
+    The providers registered before it replaced core's set stay in that set,
+    `earlier`, which it reads but never copies: core's removal callbacks of those
+    providers remove them from there, so none is kept here once it is gone. The
+    providers registered since are its own members. The two never overlap, as core
+    only adds a provider that is in neither. `first` is cleared when it is removed,
+    so an unloaded entry's provider is not kept either.
     """
 
     def __init__(
         self, first: CameraWebRTCProvider, earlier: set[CameraWebRTCProvider]
     ) -> None:
-        """Take over the providers of `earlier`, with `first` to be yielded first."""
-        super().__init__(earlier)
-        self.first = first
+        """Read the providers of `earlier`, with `first` to be yielded first."""
+        super().__init__()
+        self.first: CameraWebRTCProvider | None = first
         self._earlier = earlier
-        self._taken_over = set(earlier)
-
-    def _registered(self, provider: object) -> bool:
-        """Whether `provider` is registered, which a stale taken-over one is not."""
-        return super().__contains__(provider) and (
-            provider not in self._taken_over or provider in self._earlier
-        )
 
     @override
     def __contains__(self, provider: object) -> bool:
-        """Whether `provider` is registered."""
-        return self._registered(provider)
+        """Whether `provider` is registered, here or in the earlier set."""
+        return super().__contains__(provider) or provider in self._earlier
+
+    @override
+    def __len__(self) -> int:
+        """The number of registered providers, which core tests for being none."""
+        return super().__len__() + len(self._earlier)
 
     @override
     def __iter__(self) -> Iterator[CameraWebRTCProvider]:
         """Yield `first`, if registered, then the other registered providers."""
-        if self._registered(self.first):
-            yield self.first
-        for provider in super().__iter__():
-            if provider is not self.first and self._registered(provider):
+        first = self.first
+        if first is not None and first in self:
+            yield first
+        for provider in (*self._earlier, *super().__iter__()):
+            if provider is not first:
                 yield provider
 
     @override
-    def add(self, provider: CameraWebRTCProvider) -> None:
-        """Register `provider`, also one taken over whose own callback removed it."""
-        self._taken_over.discard(provider)
-        super().add(provider)
+    def remove(self, provider: CameraWebRTCProvider) -> None:
+        """Remove a provider registered since, as core's removal callback does."""
+        super().remove(provider)
+        if provider is self.first:
+            self.first = None
 
 
 @callback
