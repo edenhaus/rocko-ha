@@ -10,9 +10,7 @@ rules:
   common-modules: done
   config-flow: done
   config-flow-test-coverage: done
-  dependency-transparency:
-    status: todo
-    comment: rocko-client is installed from a git commit; it is not released to PyPI yet.
+  dependency-transparency: done
   docs-actions:
     status: exempt
     comment: The integration has no actions.

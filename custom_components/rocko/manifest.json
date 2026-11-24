@@ -10,7 +10,7 @@
   "issue_tracker": "https://github.com/edenhaus/rocko-ha/issues",
   "loggers": ["rocko_client"],
   "requirements": [
-    "rocko-client@git+https://github.com/edenhaus/rocko-clients@8c5405d1cb77ce8f42b96506dc5d26084526076a#subdirectory=python"
+    "rocko-client==0.0.1"
   ],
   "single_config_entry": true,
   "version": "0.0.0"

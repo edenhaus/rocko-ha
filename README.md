@@ -31,10 +31,6 @@ into core later. Until then it is a custom integration, installable with HACS.
   runs and whose control socket Home Assistant may open.
 - Cameras whose integration gives Home Assistant a stream source, such as
   Generic Camera, ONVIF or most vendor integrations.
-- The Python client, `rocko-client`, is not on PyPI yet: Home Assistant
-  installs it from a pinned commit of
-  [rocko-clients](https://github.com/edenhaus/rocko-clients), which needs
-  `git` in Home Assistant's environment.
 
 ## Installation
 
