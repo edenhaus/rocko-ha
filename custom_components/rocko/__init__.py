@@ -5,10 +5,7 @@ import logging
 
 from rocko_client import ApiVersionError, RockoClient, RockoError
 
-from homeassistant.components.camera import (
-    DOMAIN as CAMERA_DOMAIN,
-    async_register_webrtc_provider,
-)
+from homeassistant.components.camera import DOMAIN as CAMERA_DOMAIN
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import EVENT_HOMEASSISTANT_STOP
 from homeassistant.core import Event, HomeAssistant
@@ -17,6 +14,7 @@ from homeassistant.exceptions import ConfigEntryError, ConfigEntryNotReady
 from .connection import RockoConnection
 from .const import CONF_BINARY, CONF_MODE, CONF_SOCKET, DOMAIN, MODE_SPAWN
 from .issues import async_delete_sandbox_issues, async_update_sandbox_issues
+from .priority import async_register_first_webrtc_provider
 from .provider import DATA_HANDOVER, RockoWebRTCProvider, stream_id_for
 from .server import RockoServer, RockoServerError
 
@@ -77,7 +75,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: RockoConfigEntry) -> boo
     entry.async_on_unload(
         hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STOP, _async_on_stop)
     )
-    entry.async_on_unload(async_register_webrtc_provider(hass, provider))
+    # First, so cameras another provider (go2rtc) also takes are rocko's.
+    entry.async_on_unload(async_register_first_webrtc_provider(hass, provider))
 
     # Sessions the previous entry left behind are adopted on this connection.
     provider.async_take_handover()

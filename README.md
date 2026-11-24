@@ -145,6 +145,11 @@ suggested *Control socket*, `/run/rocko/rocko.sock`.
 - Repair issues when rocko runs with its sandbox off, or without one of its
   layers (privilege drop, `no_new_privs`, seccomp, Landlock filesystem
   rules). They are checked on every connection and withdrawn once fixed.
+- Rocko first among the WebRTC providers: a camera whose URL scheme rocko
+  reads is rocko's even when another provider, such as go2rtc, reads it too;
+  other schemes go to the other provider. Home Assistant has no order for
+  providers, so the integration sets it through Home Assistant internals
+  until Home Assistant can order them.
 
 ## Not supported yet
 
@@ -153,9 +158,6 @@ suggested *Control socket*, `/run/rocko/rocko.sock`.
 - Recordings and two-way audio, which rocko supports, are not used yet.
 - Repair issues for a stream that keeps failing; the daemon's errors reach
   the browser and the log.
-- If another integration registers a WebRTC provider for the same URL
-  schemes, Home Assistant picks one of the two per camera, in no defined
-  order. Deterministic selection needs a change in Home Assistant.
 - An options flow; there is nothing to set besides the connection.
 
 ## Troubleshooting
