@@ -8,9 +8,9 @@
   "integration_type": "service",
   "iot_class": "local_push",
   "issue_tracker": "https://github.com/edenhaus/rocko-ha/issues",
-  "loggers": ["lotse_client"],
+  "loggers": ["rocko_client"],
   "requirements": [
-    "lotse-client@git+https://github.com/edenhaus/rocko-clients@3104f6fcd5e902740f6eac0d0279e4c6e229650f#subdirectory=python"
+    "rocko-client==0.0.1"
   ],
   "single_config_entry": true,
   "version": "0.0.0"

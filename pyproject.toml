@@ -17,7 +17,7 @@ dev = [
   # The requirements of the camera and stream components, which the tests load;
   # Home Assistant installs them with those components.
   "av==19.0.0",
-  "lotse-client", # pinned to a commit in [tool.uv.sources], as manifest.json requires it
+  "rocko-client==0.0.1", # the version manifest.json requires
   "mypy==2.4.0",
   "PyTurboJPEG==1.8.3",
   # The newest release; it pins homeassistant==2026.10.4 (none pins 2026.11 yet).
@@ -27,9 +27,6 @@ dev = [
 
 [tool.uv]
 package = false
-
-[tool.uv.sources]
-lotse-client = { git = "https://github.com/edenhaus/rocko-clients", rev = "3104f6fcd5e902740f6eac0d0279e4c6e229650f", subdirectory = "python" }
 
 # The ruff rules are Home Assistant core's (its pyproject.toml), so the
 # integration can move into core unchanged.

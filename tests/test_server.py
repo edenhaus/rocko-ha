@@ -8,8 +8,8 @@ from pathlib import Path
 from typing import Any
 from unittest.mock import AsyncMock, Mock, patch
 
-from lotse_client import ApiVersionError, CannotConnectError
 import pytest
+from rocko_client import ApiVersionError, CannotConnectError
 
 from custom_components.rocko.server import (
     LINE_LIMIT,

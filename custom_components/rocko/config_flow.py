@@ -12,8 +12,8 @@ from pathlib import Path
 import shutil
 from typing import Any, override
 
-from lotse_client import ApiVersionError, LotseClient, LotseError
 import probatio
+from rocko_client import ApiVersionError, RockoClient, RockoError
 
 from homeassistant.config_entries import (
     SOURCE_RECONFIGURE,
@@ -50,13 +50,13 @@ def _check_binary(path: str) -> str | None:
 
 async def _async_check_socket(path: str) -> str | None:
     """Connect to a control socket; the error key if that fails."""
-    client = LotseClient(path)
+    client = RockoClient(path)
     try:
         hello = await client.connect()
     except ApiVersionError as err:
         _LOGGER.debug("rocko at %s speaks an unsupported API: %s", path, err)
         return "api_version"
-    except LotseError as err:
+    except RockoError as err:
         _LOGGER.debug("Cannot connect to rocko at %s: %s", path, err)
         return "cannot_connect"
     except Exception:

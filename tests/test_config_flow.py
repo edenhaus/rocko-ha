@@ -5,9 +5,9 @@ from pathlib import Path
 import stat
 from unittest.mock import AsyncMock, patch
 
-from lotse_client import ApiVersionError, CannotConnectError
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
+from rocko_client import ApiVersionError, CannotConnectError
 
 from custom_components.rocko.const import (
     CONF_BINARY,

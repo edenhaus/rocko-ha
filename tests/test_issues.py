@@ -2,9 +2,9 @@
 
 from typing import Any
 
-from lotse_client.models import InfoResult
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
+from rocko_client.models import InfoResult
 
 from custom_components.rocko.const import DOMAIN
 from custom_components.rocko.issues import (

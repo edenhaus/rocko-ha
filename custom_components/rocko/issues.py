@@ -11,7 +11,7 @@ they need Landlock ABI 4, which many supported kernels lack.
 import logging
 from typing import Final
 
-from lotse_client.models import SandboxInfo
+from rocko_client.models import SandboxInfo
 
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import issue_registry as ir

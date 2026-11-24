@@ -5,21 +5,6 @@ from collections.abc import AsyncGenerator, Callable, Generator
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
-from lotse_client import LotseClient, Subscription
-from lotse_client._commands import (
-    MetricsCommands,
-    SessionCommands,
-    StreamCommands,
-    WebrtcCommands,
-)
-from lotse_client.models import (
-    Hello,
-    InfoResult,
-    Metrics,
-    SessionEvent,
-    StreamList,
-    StreamPutResult,
-)
 import pytest
 from pytest_homeassistant_custom_component.common import (
     MockConfigEntry,
@@ -28,6 +13,21 @@ from pytest_homeassistant_custom_component.common import (
     mock_integration,
     mock_platform,
     setup_test_component_platform,
+)
+from rocko_client import RockoClient, Subscription
+from rocko_client._commands import (
+    MetricsCommands,
+    SessionCommands,
+    StreamCommands,
+    WebrtcCommands,
+)
+from rocko_client.models import (
+    Hello,
+    InfoResult,
+    Metrics,
+    SessionEvent,
+    StreamList,
+    StreamPutResult,
 )
 
 from custom_components.rocko.const import (
@@ -132,7 +132,7 @@ STREAMS = StreamList.from_dict(
 
 
 class MockClients:
-    """The patched `LotseClient` class: a new mock client per connection."""
+    """The patched `RockoClient` class: a new mock client per connection."""
 
     def __init__(self) -> None:
         """Start with no client."""
@@ -162,7 +162,7 @@ class MockClients:
 
 def _mock_client() -> MagicMock:
     """A connected client whose commands succeed."""
-    client = MagicMock(spec=LotseClient)
+    client = MagicMock(spec=RockoClient)
     client.hello = HELLO
     client.connect = AsyncMock(return_value=HELLO)
     client.close = AsyncMock()
@@ -208,13 +208,13 @@ def auto_enable_custom_integrations(enable_custom_integrations: None) -> None:
 
 @pytest.fixture
 def mock_clients() -> Generator[MockClients]:
-    """Patch `LotseClient` wherever the integration creates one."""
+    """Patch `RockoClient` wherever the integration creates one."""
     clients = MockClients()
     with (
-        patch("custom_components.rocko.LotseClient", side_effect=clients),
-        patch("custom_components.rocko.connection.LotseClient", side_effect=clients),
-        patch("custom_components.rocko.server.LotseClient", side_effect=clients),
-        patch("custom_components.rocko.config_flow.LotseClient", side_effect=clients),
+        patch("custom_components.rocko.RockoClient", side_effect=clients),
+        patch("custom_components.rocko.connection.RockoClient", side_effect=clients),
+        patch("custom_components.rocko.server.RockoClient", side_effect=clients),
+        patch("custom_components.rocko.config_flow.RockoClient", side_effect=clients),
     ):
         yield clients
 
